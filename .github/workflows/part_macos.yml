@@ -24,8 +24,6 @@ jobs:
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
-    env:
-      NW_KEYCHAIN: ${{ runner.temp }}/signing.keychain-db
     steps:
       - name: Checkout Source
         uses: actions/checkout@v7
@@ -72,6 +70,8 @@ jobs:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
         run: |
+          echo "NW_KEYCHAIN=$RUNNER_TEMP/signing.keychain-db" >> "$GITHUB_ENV"
+          NW_KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
           keychain_password=$(openssl rand -base64 24)
           echo "$MACOS_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
           security create-keychain -p "$keychain_password" "$NW_KEYCHAIN"
