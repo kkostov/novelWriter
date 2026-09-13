@@ -1,6 +1,9 @@
 name: Build MacOS
 
 on:
+  push:
+    branches:
+      - feat/package-main-macos
   workflow_dispatch:
     inputs:
       configuration:
@@ -24,7 +27,7 @@ jobs:
     needs: buildAssets
     uses: ./.github/workflows/part_macos.yml
     with:
-      configuration: ${{ inputs.configuration }}
+      configuration: ${{ inputs.configuration || 'Debug' }}
     secrets: inherit
     permissions:
       contents: read
