@@ -7,7 +7,7 @@
 set -euo pipefail
 
 application_sign_cert="Developer ID Application: Headbright Group VOF (MS6MBBXCFJ)"
-credential_profile="headbright-signs"
+credential_profile="novelwriter-signs"
 
 configuration="${1:-Release}"
 src_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
