@@ -56,8 +56,9 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
         run: |
-          for name in MACOS_CERTIFICATE_P12 MACOS_CERTIFICATE_PASSWORD APPLE_API_KEY_ID APPLE_API_ISSUER_ID APPLE_API_KEY_P8; do
+          for name in MACOS_CERTIFICATE_P12 MACOS_CERTIFICATE_PASSWORD APPLE_API_KEY_ID APPLE_API_ISSUER_ID APPLE_API_KEY_P8 MACOS_SIGNING_IDENTITY; do
             if [[ -z "${!name}" ]]; then
               echo "Missing secret: $name"
               exit 1
@@ -100,6 +101,8 @@ jobs:
 
       - name: Build App Bundle
         id: build
+        env:
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
         run: |
           echo "BUILD_VERSION=$(uv run --no-sync pkgutils.py version)" >> $GITHUB_OUTPUT
           ./setup/macos/build.sh ${{ inputs.configuration }}

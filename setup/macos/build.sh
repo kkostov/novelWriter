@@ -1,12 +1,10 @@
 #!/bin/bash
 
 # Builds, signs and optionally notarizes novelWriter.app.
-# "Release" signs with the Developer ID and notarizes, "Debug" is ad-hoc signed.
-# Prepare the keychain and the notarytool profile before running a Release build.
+# Note: keychain and appropriate certificates are required on the system before running a build in Release mode.
 
 set -euo pipefail
 
-application_sign_cert="Developer ID Application: Headbright Group VOF (MS6MBBXCFJ)"
 credential_profile="novelwriter-signs"
 
 configuration="${1:-Release}"
@@ -15,7 +13,13 @@ dist_dir="$src_dir/dist_macos"
 app_bundle="$dist_dir/novelWriter.app"
 
 case "$configuration" in
-    Release) identity="$application_sign_cert" ;;
+    Release)
+        identity="${MACOS_SIGNING_IDENTITY:-}"
+        if [[ -z $identity ]]; then
+            echo "MACOS_SIGNING_IDENTITY must be set for a Release build"
+            exit 2
+        fi
+        ;;
     Debug) identity="" ;;
     *) echo "unknown configuration '$configuration' (expected Release or Debug)"; exit 2 ;;
 esac
