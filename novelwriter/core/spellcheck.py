@@ -45,11 +45,7 @@ MAX_CACHE_SIZE = 100_000
 
 
 class SpellChecker(ABC):
-    """Core: Spell Checking Base Class.
-
-    This class holds the spell checking logic shared by all backends -
-    Enchant or NSSpellChecker
-    """
+    """Core: Spell Checking Base Class."""
 
     __slots__ = ("_cache", "_language", "_lock", "_project", "_requested", "_userDict")
 
@@ -187,9 +183,7 @@ class SpellChecker(ABC):
 
     @abstractmethod
     def _loadLanguage(self, language: str | None) -> bool:
-        """Load the dictionary for a language, and return True if it
-        was loaded.
-        """
+        """Load a language dictionary, and return True on success."""
 
     @abstractmethod
     def _checkWord(self, word: str) -> bool:
@@ -227,8 +221,7 @@ class SpellEnchant(SpellChecker):
         self._broker = None
 
     def _loadLanguage(self, language: str | None) -> bool:
-        """Load an Enchant dictionary, falling back to a mock
-        dictionary.
+        """Load an Enchant dictionary, or fall back to a mock one.
 
         Note: Enchant will allow loading an empty string as a tag, but
         this will fail later on. See issue #1096.
@@ -291,9 +284,7 @@ class SpellApple(SpellChecker):
         super().__del__()
 
     def _loadLanguage(self, language: str | None) -> bool:
-        """Select a system spell checking language, and open a new
-        spell document for the session words.
-        """
+        """Select a system language, and open a new spell document."""
         from AppKit import NSSpellChecker  # type: ignore
 
         self._closeDocument()
