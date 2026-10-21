@@ -23,16 +23,20 @@ from __future__ import annotations
 
 import sys
 
+from importlib.util import find_spec
 from pathlib import Path
 
 import pytest
 
 from novelwriter.constants import nwFiles
 from novelwriter.core.project import NWProject
-from novelwriter.core.spellcheck import FakeEnchant, SpellEnchant, UserDictionary
+from novelwriter.core.spellcheck import FakeEnchant, SpellApple, SpellEnchant, UserDictionary, createSpellChecker
 
 from tests.helpers import buildTestProject
 from tests.mocked import MockGuiMain, causeOSError
+
+HAS_ENCHANT = find_spec("enchant") is not None
+IS_DARWIN = sys.platform == "darwin"
 
 
 @pytest.mark.core
@@ -138,6 +142,7 @@ def testFakeEnchant_Main(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, 
 
 
 @pytest.mark.core
+@pytest.mark.skipif(not HAS_ENCHANT, reason="Requires pyenchant")
 def testSpellEnchant_Main(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, fncPath: Path):
     """Test the pyenchant spell checker."""
     project = NWProject()
@@ -216,6 +221,7 @@ def testSpellEnchant_Main(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain,
         mp.setattr("enchant.Broker.request_dict", lambda *a: None)
         spChk.setLanguage("en_US")
         assert isinstance(spChk._enchant, FakeEnchant)
+        assert spChk.spellLanguage is None
 
 
 @pytest.mark.core
@@ -258,3 +264,76 @@ def testSpellEnchant_Cache(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain
     # Changing the language should clear the cache
     spChk.setLanguage(None)
     assert spChk._cache == {}
+
+
+@pytest.mark.core
+def testSpellCheck_Create(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, fncPath: Path):
+    """Test that the platform spell checker is created."""
+    project = NWProject()
+    buildTestProject(project, fncPath)
+
+    with monkeypatch.context() as mp:
+        mp.setattr("novelwriter.CONFIG.osDarwin", True)
+        assert isinstance(createSpellChecker(project), SpellApple)
+
+    with monkeypatch.context() as mp:
+        mp.setattr("novelwriter.CONFIG.osDarwin", False)
+        assert isinstance(createSpellChecker(project), SpellEnchant)
+
+
+@pytest.mark.core
+@pytest.mark.skipif(not IS_DARWIN, reason="Requires macOS")
+def testSpellApple_Main(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, fncPath: Path):
+    """Test the macOS spell checker."""
+    project = NWProject()
+    buildTestProject(project, fncPath)
+
+    spChk = SpellApple(project)
+    assert spChk.spellLanguage is None
+    assert spChk.describeDict() == ("", "")
+    assert spChk.checkWord("helo") is True
+    assert spChk.suggestWords("helo") == []
+
+    # List languages
+    languages = spChk.listDictionaries()
+    assert len(languages) > 0
+    assert languages == sorted(languages, key=lambda x: x[1])
+    assert "en" in [tag for tag, _ in languages]
+
+    # Invalid language
+    spChk.setLanguage("whatchamajig")
+    assert spChk.spellLanguage is None
+    assert spChk.requestedLanguage == "whatchamajig"
+    assert spChk.describeDict() == ("", "")
+    assert spChk.checkWord("wrld") is True
+
+    # Valid language
+    spChk.setLanguage("en")
+    assert spChk.spellLanguage == "en"
+    assert spChk.describeDict() == ("en", "AppleSpell")
+    assert spChk.checkWord("hello") is True
+    assert spChk.checkWord("helo") is False
+    assert spChk.checkWord("wrld") is False
+    assert "hello" in spChk.suggestWords("helo")
+
+    # Add a word to the session and the user dictionary
+    assert spChk.checkWord("zpqxyq") is False
+    spChk.addWord("zpqxyq")
+    assert spChk.checkWord("zpqxyq") is True
+    assert "zpqxyq" in spChk._userDict
+
+    # Words from the user dictionary are restored on language change
+    spChk.setLanguage("en")
+    assert spChk.checkWord("zpqxyq") is True
+
+    # A new instance loads the user dictionary into its own session
+    other = SpellApple(project)
+    other.setLanguage("en")
+    assert other.checkWord("zpqxyq") is True
+
+    # Backend errors are handled
+    with monkeypatch.context() as mp:
+        mp.setitem(sys.modules, "AppKit", None)
+        spChk.setLanguage("en")
+        assert spChk.spellLanguage is None
+        assert spChk.listDictionaries() == []

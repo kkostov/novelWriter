@@ -547,7 +547,7 @@ wheels = [
 name = "novelwriter"
 source = { editable = "." }
 dependencies = [
-    { name = "pyenchant" },
+    { name = "pyenchant", marker = "sys_platform != 'darwin'" },
     { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
     { name = "pyqt6" },
 ]
@@ -603,7 +603,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pyenchant", specifier = ">=3.3.0" },
+    { name = "pyenchant", marker = "sys_platform != 'darwin'", specifier = ">=3.3.0" },
     { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
     { name = "pyqt6", specifier = ">=6.4" },
 ]

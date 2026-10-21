@@ -43,7 +43,8 @@ pressing :kbd:`Ctrl+Return`. You can also control-click them with your mouse.
 Spell Checking
 --------------
 
-A third party library called Enchant is used for spell checking in the editor. The controls for
+A third party library called Enchant is used for spell checking in the editor on Linux and
+Windows. On MacOS, the spell checker built into the operating system is used. The controls for
 spell checking are found in the **Tools** menu. You can also set spell checking language in
 **Project Settings**.
 

@@ -5,7 +5,6 @@ import os
 
 ROOT_DIR = os.path.abspath(os.path.join(SPECPATH, "..", ".."))
 BUILD_DIR = os.environ["NW_BUILD_DIR"]
-ENCHANT_DIR = os.environ["NW_ENCHANT_PREFIX"]
 VERSION = os.environ["NW_VERSION"]
 MIN_MACOS = os.environ["NW_MIN_MACOS"]
 
@@ -36,24 +35,13 @@ def keepEntry(entry):
 
 a = Analysis(
     [os.path.join(ROOT_DIR, "novelWriter.py")],
-    binaries=[
-        (os.path.join(ENCHANT_DIR, "lib", "libenchant-2.2.dylib"), "."),
-        (os.path.join(ENCHANT_DIR, "lib", "enchant-2", "enchant_applespell.so"), "enchant/lib/enchant-2"),
-    ],
     datas=[
         (os.path.join(BUILD_DIR, "assets"), "assets"),
     ],
-    hookspath=[SPECPATH],
-    runtime_hooks=[os.path.join(SPECPATH, "rthook_enchant.py")],
     excludes=["PyQt6.QtDBus", "PyQt6.QtNetwork", "PyQt6.QtPdf", "PyQt6.QtSvg", "tkinter", "unittest", "test"],
 )
 a.binaries = [x for x in a.binaries if keepEntry(x)]
 a.datas = [x for x in a.datas if keepEntry(x)]
-
-# pyenchant derives the enchant prefix from the library path it is given, and PyInstaller
-# resolves shared library dependencies from the top level directory only, so the library
-# is collected at the top level and linked into the prefix layout libenchant expects.
-a.binaries.append(("enchant/lib/libenchant-2.2.dylib", "../../libenchant-2.2.dylib", "SYMLINK"))
 
 pyz = PYZ(a.pure)
 exe = EXE(

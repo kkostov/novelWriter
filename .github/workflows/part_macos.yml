@@ -11,8 +11,6 @@ on:
 jobs:
   buildMac:
     name: Build on MacOS ${{ matrix.arch }}
-    # The Homebrew enchant bottle only runs on the macOS major it was built
-    # for, so the runner version sets the minimum macOS version of the app.
     strategy:
       fail-fast: false
       matrix:
@@ -27,10 +25,6 @@ jobs:
     steps:
       - name: Checkout Source
         uses: actions/checkout@v7
-
-      - name: Install System Packages
-        run: |
-          brew install enchant
 
       - name: Install UV and Python
         uses: astral-sh/setup-uv@v10.2.0

@@ -23,12 +23,8 @@ from __future__ import annotations
 
 import argparse
 import os
-import platform
 import shutil
-import subprocess
 import sys
-
-from pathlib import Path
 
 from utils.common import (
     ROOT_DIR,
@@ -42,22 +38,7 @@ from utils.common import (
     updateMetaFile,
 )
 
-
-def enchantPrefix() -> Path:
-    """Locate the Homebrew enchant installation."""
-    prefix = Path("")
-    if brew := shutil.which("brew"):
-        result = subprocess.run([brew, "--prefix", "enchant"], capture_output=True, text=True, check=False)
-        if result.returncode == 0:
-            prefix = Path(result.stdout.strip())
-    required = [
-        prefix / "lib" / "libenchant-2.2.dylib",
-        prefix / "lib" / "enchant-2" / "enchant_applespell.so",
-    ]
-    if not all(f.is_file() for f in required):
-        log("[cr]ERROR:[e] Homebrew package 'enchant' is missing. Run 'brew install enchant'.")
-        sys.exit(1)
-    return prefix
+MIN_MACOS = "15.0"
 
 
 def main(args: argparse.Namespace) -> None:
@@ -95,8 +76,7 @@ def main(args: argparse.Namespace) -> None:
 
     os.environ["NW_VERSION"] = numVers
     os.environ["NW_BUILD_DIR"] = str(bldDir)
-    os.environ["NW_ENCHANT_PREFIX"] = str(enchantPrefix())
-    os.environ["NW_MIN_MACOS"] = f"{platform.mac_ver()[0].partition('.')[0]}.0"
+    os.environ["NW_MIN_MACOS"] = MIN_MACOS
     os.environ["NW_CODESIGN_IDENTITY"] = args.identity or ""
 
     PyInstaller.__main__.run([

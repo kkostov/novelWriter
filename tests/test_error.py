@@ -63,6 +63,7 @@ def testError_Dialog(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, nwGUI: GuiMa
         assert "Fine Error" in message
         assert "Exception" in message
         assert "(1.2.3)" in message
+        assert "Spell Check: Unknown" not in message
 
     # No kernel version retrieved
     with monkeypatch.context() as mp:
@@ -72,13 +73,14 @@ def testError_Dialog(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, nwGUI: GuiMa
         assert message != ""
         assert "(Unknown)" in message
 
-    # No enchant version retrieved
+    # No spell check version retrieved
     with monkeypatch.context() as mp:
+        mp.setitem(sys.modules, "objc", None)
         mp.setitem(sys.modules, "enchant", None)
         nwErr.setMessage(Exception, "Almost Fine Error", None)  # type: ignore
         message = nwErr.msgBody.toPlainText()
         assert message != ""
-        assert "Enchant: Unknown" in message
+        assert "Spell Check: Unknown" in message
 
     nwErr._doClose()
     nwErr.close()
