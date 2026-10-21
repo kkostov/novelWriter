@@ -477,15 +477,16 @@ class SharedData(QObject):
 
     def _resetProject(self) -> None:
         """Create a new project and spell checking instance."""
+        from novelwriter import CONFIG
         from novelwriter.core.project import NWProject
-        from novelwriter.core.spellcheck import createSpellChecker
+        from novelwriter.core.spellcheck import SpellApple, SpellEnchant
 
         if isinstance(self._project, NWProject):
             self._project.clear()
             del self._project
             del self._spelling
         self._project = NWProject()
-        self._spelling = createSpellChecker(self._project)
+        self._spelling = SpellApple(self._project) if CONFIG.osDarwin else SpellEnchant(self._project)
         self.updateSpellCheckLanguage()
         self._focusMode = False
 

@@ -30,10 +30,10 @@ import pytest
 
 from novelwriter.constants import nwFiles
 from novelwriter.core.project import NWProject
-from novelwriter.core.spellcheck import FakeEnchant, SpellApple, SpellEnchant, UserDictionary, createSpellChecker
+from novelwriter.core.spellcheck import FakeEnchant, SpellApple, SpellEnchant, UserDictionary
 
 from tests.helpers import buildTestProject
-from tests.mocked import MockGuiMain, causeOSError
+from tests.mocked import MockGuiMain, causeException, causeOSError
 
 HAS_ENCHANT = find_spec("enchant") is not None
 IS_DARWIN = sys.platform == "darwin"
@@ -223,9 +223,16 @@ def testSpellEnchant_Main(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain,
         assert isinstance(spChk._enchant, FakeEnchant)
         assert spChk.spellLanguage is None
 
+        # Failing to add user words keeps the language loaded
+        mp.setattr("enchant.Broker.request_dict", lambda *a: MockDict())
+        mp.setattr(MockDict, "add_to_session", causeException)
+        assert "word" in spChk._userDict
+        spChk.setLanguage("en_US")
+        assert spChk.spellLanguage == "en_US"
+
 
 @pytest.mark.core
-def testSpellEnchant_Cache(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, fncPath: Path):
+def testSpellChecker_Cache(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, fncPath: Path):
     """Test the spell checker word cache."""
     project = NWProject()
     buildTestProject(project, fncPath)
@@ -264,21 +271,6 @@ def testSpellEnchant_Cache(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain
     # Changing the language should clear the cache
     spChk.setLanguage(None)
     assert spChk._cache == {}
-
-
-@pytest.mark.core
-def testSpellCheck_Create(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, fncPath: Path):
-    """Test that the platform spell checker is created."""
-    project = NWProject()
-    buildTestProject(project, fncPath)
-
-    with monkeypatch.context() as mp:
-        mp.setattr("novelwriter.CONFIG.osDarwin", True)
-        assert isinstance(createSpellChecker(project), SpellApple)
-
-    with monkeypatch.context() as mp:
-        mp.setattr("novelwriter.CONFIG.osDarwin", False)
-        assert isinstance(createSpellChecker(project), SpellEnchant)
 
 
 @pytest.mark.core

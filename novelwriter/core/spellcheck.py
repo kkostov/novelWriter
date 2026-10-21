@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 
+from abc import ABC, abstractmethod
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any
@@ -43,7 +44,7 @@ logger = logging.getLogger(__name__)
 MAX_CACHE_SIZE = 100_000
 
 
-class SpellChecker:
+class SpellChecker(ABC):
     """Core: Spell Checking Base Class.
 
     This class holds the spell checking logic shared by all backends -
@@ -59,11 +60,11 @@ class SpellChecker:
         self._lock = Lock()
         self._language = None
         self._requested = None
-        logger.debug("Ready: %s", type(self).__name__)
+        logger.debug("Ready: SpellChecker")
 
     def __del__(self) -> None:  # pragma: no cover
         """Class destructor."""
-        logger.debug("Delete: %s", type(self).__name__)
+        logger.debug("Delete: SpellChecker")
 
     ##
     #  Properties
@@ -184,31 +185,31 @@ class SpellChecker:
     #  Backend Hooks
     ##
 
+    @abstractmethod
     def _loadLanguage(self, language: str | None) -> bool:
         """Load the dictionary for a language, and return True if it
         was loaded.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def _checkWord(self, word: str) -> bool:
         """Return True if the word is spelled correctly."""
-        raise NotImplementedError
 
+    @abstractmethod
     def _suggestWords(self, word: str) -> list[str]:
         """Return spelling suggestions for a word."""
-        raise NotImplementedError
 
+    @abstractmethod
     def _addSessionWord(self, word: str) -> None:
         """Accept a word for the rest of the session."""
-        raise NotImplementedError
 
+    @abstractmethod
     def _listLanguages(self) -> list[str]:
         """Return the tags of all available languages."""
-        raise NotImplementedError
 
+    @abstractmethod
     def _describeDict(self) -> tuple[str, str]:
         """Return the tag and provider name of the loaded dictionary."""
-        raise NotImplementedError
 
 
 class SpellEnchant(SpellChecker):
@@ -351,15 +352,6 @@ class SpellApple(SpellChecker):
         if self._checker is not None and self._document:
             self._checker.closeSpellDocumentWithTag_(self._document)
         self._document = 0
-
-
-def createSpellChecker(project: NWProject) -> SpellChecker:
-    """Create the spell checker for the current platform."""
-    from novelwriter import CONFIG
-
-    if CONFIG.osDarwin:
-        return SpellApple(project)
-    return SpellEnchant(project)
 
 
 class FakeEnchant:

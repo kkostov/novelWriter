@@ -23,10 +23,13 @@ from __future__ import annotations
 
 import sys
 
+from types import ModuleType
+
 import pytest
 
 from pytestqt.qtbot import QtBot
 
+from novelwriter import CONFIG
 from novelwriter.error import ErrorMessage, exceptionHandler, logException
 from novelwriter.guimain import GuiMain
 
@@ -81,6 +84,23 @@ def testError_Dialog(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, nwGUI: GuiMa
         message = nwErr.msgBody.toPlainText()
         assert message != ""
         assert "Spell Check: Unknown" in message
+
+    # Spell check versions per platform
+    objc = ModuleType("objc")
+    objc.__dict__["__version__"] = "1.2"
+    enchant = ModuleType("enchant")
+    enchant.__dict__["__version__"] = "3.4"
+    with monkeypatch.context() as mp:
+        mp.setitem(sys.modules, "objc", objc)
+        mp.setitem(sys.modules, "enchant", enchant)
+
+        mp.setattr(CONFIG, "osDarwin", True)
+        nwErr.setMessage(Exception, "Fine Error", None)  # type: ignore
+        assert "Spell Check: AppleSpell (PyObjC 1.2)" in nwErr.msgBody.toPlainText()
+
+        mp.setattr(CONFIG, "osDarwin", False)
+        nwErr.setMessage(Exception, "Fine Error", None)  # type: ignore
+        assert "Spell Check: Enchant 3.4" in nwErr.msgBody.toPlainText()
 
     nwErr._doClose()
     nwErr.close()
