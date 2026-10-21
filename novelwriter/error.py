@@ -142,7 +142,7 @@ class ErrorMessage(QDialog):
 
         try:
             if CONFIG.osDarwin:
-                import objc
+                import objc  # type: ignore
 
                 spellCheck = f"AppleSpell (PyObjC {objc.__version__})"  # type: ignore
             else:
