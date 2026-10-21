@@ -12,11 +12,11 @@ MacOS, novelWriter uses the spell checker built into the operating system.
 
 
 Linux
-===============
+=====
 
-On Linux, you generally only have to install hunspell, aspell or myspell dictionaries on
-your system like you do for other applications. See your distro or OS documentation for how to do
-this. These dictionaries should show up as available spell check languages in novelWriter.
+On Linux, you generally only have to install hunspell, aspell or myspell dictionaries on your
+system like you do for other applications. See your distro or OS documentation for how to do this.
+These dictionaries should show up as available spell check languages in novelWriter.
 
 
 Windows
