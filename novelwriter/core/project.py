@@ -573,13 +573,13 @@ class NWProject:
         self._data.itemImport.add(None, self.tr("Major"), "purple", "BLOCK_3", 0)
         self._data.itemImport.add(None, self.tr("Main"), "purple", "BLOCK_4", 0)
 
-    def setProjectLang(self, language: str | None) -> None:
+    def setProjectLang(self, language: str | None, rtl: bool) -> None:
         """Set the project-specific language."""
         language = checkStringNone(language, None)
-        if self._data.language != language:
-            self._data.setLanguage(language)
+        reload = self._data.language != language
+        self._data.setLanguage(language, rtl)
+        if reload:
             self._loadProjectLocalisation()
-            self.setProjectChanged(True)
 
     def setProjectChanged(self, status: bool) -> bool:
         """Toggle the project changed flag, and propagate the

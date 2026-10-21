@@ -92,14 +92,20 @@ def testProjectData_Language(mockGUI: MockGuiMain):
     project = MockProject()
     data = ProjectData(project)  # type: ignore
 
-    data.setLanguage("en_GB")
+    data.setLanguage("en_GB", False)
     assert data.language == "en_GB"
+    assert data.isRTL is False
 
     # Setting the same language again does nothing
     project.changed = 0
-    data.setLanguage("en_GB")
+    data.setLanguage("en_GB", False)
     assert data.language == "en_GB"
     assert project.changed == 0
+
+    # Changing only the direction is a change
+    data.setLanguage("en_GB", "yes")
+    assert data.isRTL is True
+    assert project.changed == 1
 
 
 @pytest.mark.core

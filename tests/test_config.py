@@ -30,7 +30,7 @@ from shutil import copyfile
 
 import pytest
 
-from PyQt6.QtCore import QRect
+from PyQt6.QtCore import QRect, Qt
 from PyQt6.QtGui import QFontDatabase
 
 from novelwriter import CONFIG
@@ -241,6 +241,13 @@ def testConfig_Localisation(fncPath: Path, tstPaths: TstPaths):
 
     tstApp = MockApp()
     conf.initLocalisation(tstApp)  # type: ignore
+    assert conf.rtlMode is False
+
+    # Forcing RTL sets the app layout direction
+    conf.guiForceRTL = True
+    conf.initLocalisation(tstApp)  # type: ignore
+    assert tstApp.layoutDirection() == Qt.LayoutDirection.RightToLeft
+    assert conf.rtlMode is True
 
     # Check Lists
     languages = conf.listLanguages(conf.LANG_NW)

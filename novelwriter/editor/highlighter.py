@@ -25,7 +25,7 @@ import logging
 import re
 
 from time import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QBrush, QColor, QSyntaxHighlighter, QTextCharFormat, QTextDocument
@@ -277,7 +277,7 @@ class GuiDocHighlighter(QSyntaxHighlighter):
 
     def rehighlight(self) -> None:
         """Mark the document layout busy before a full rehighlight."""
-        doc: GuiTextDocument = self.document()  # type: ignore[assignment]
+        doc = cast("GuiTextDocument", self.document())
         if hasattr(doc, "markLayoutBusy"):
             doc.markLayoutBusy()
         super().rehighlight()

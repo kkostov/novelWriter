@@ -28,6 +28,7 @@ from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any
 
+from novelwriter import CONFIG
 from novelwriter.common import languageName
 from novelwriter.constants import nwFiles
 from novelwriter.error import logException
@@ -436,7 +437,7 @@ class UserDictionary:
         wordList = self._project.storage.getMetaFile(nwFiles.DICT_FILE)
         if isinstance(wordList, Path):
             try:
-                with open(wordList, mode="w", encoding="utf-8") as fObj:
+                with open(wordList, mode="w", encoding="utf-8", newline=CONFIG.lineEnding) as fObj:
                     data = {"novelWriter.userDict": list(self._words)}
                     json.dump(data, fObj, indent=2)
             except Exception:

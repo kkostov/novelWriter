@@ -232,7 +232,10 @@ class DocumentBuilder:
         textFont.fromString(self._build.getStr("format.textFont"))
 
         bldObj.setTextFont(textFont)
-        bldObj.setLanguage(self._build.getStr("doc.metaLanguage") or self._project.data.language)
+        bldObj.setLanguage(
+            self._build.getStr("doc.metaLanguage") or self._project.data.language,
+            self._project.data.isRTL,
+        )
 
         bldObj.setPartitionFormat(
             self._build.getStr("headings.fmtPart"),
@@ -260,19 +263,19 @@ class DocumentBuilder:
         )
         bldObj.setTitleStyle(
             self._build.getBool("headings.centerTitle"),
-            self._build.getBool("headings.breakTitle"),
+            self._build.getInt("headings.breakTitle"),
         )
         bldObj.setPartitionStyle(
             self._build.getBool("headings.centerPart"),
-            self._build.getBool("headings.breakPart"),
+            self._build.getInt("headings.breakPart"),
         )
         bldObj.setChapterStyle(
             self._build.getBool("headings.centerChapter"),
-            self._build.getBool("headings.breakChapter"),
+            self._build.getInt("headings.breakChapter"),
         )
         bldObj.setSceneStyle(
             self._build.getBool("headings.centerScene"),
-            self._build.getBool("headings.breakScene"),
+            self._build.getInt("headings.breakScene"),
         )
 
         bldObj.setJustify(
@@ -291,6 +294,7 @@ class DocumentBuilder:
             self._build.getBool("format.colorHeadings"),
             self._build.getBool("format.boldHeadings"),
             self._build.getBool("format.upperHeadings"),
+            self._build.getBool("format.showStatus"),
         )
 
         bldObj.setTitleProperties(
@@ -343,6 +347,7 @@ class DocumentBuilder:
         if isinstance(bldObj, ToOdt | ToDocX):
             bldObj.setHeaderFormat(
                 self._build.getStr("doc.pageHeader"),
+                self._build.getStr("doc.pageHeaderEven"),
                 self._build.getInt("doc.pageCountOffset"),
             )
 
@@ -357,7 +362,7 @@ class DocumentBuilder:
                 scale * self._build.getFloat("format.leftMargin"),
                 scale * self._build.getFloat("format.rightMargin"),
                 scale * self._build.getFloat("format.gutterMargin"),
-                self._build.getBool("format.mirrorMargins"),
+                self._build.getBool("format.doublePages"),
             )
             bldObj.setLineForMargin(self._build.getBool("format.lineForMargin"))
 

@@ -60,19 +60,19 @@ class GuiSideBar(QWidget):
 
         # Buttons
         self.tbProject = NFlatIconButton(self, iSz, "sb_project:sidebar", 0.25)
-        self.tbProject.setToolTip("{0} [Ctrl+T]".format(self.tr("Project Tree View")))
+        self.tbProject.setToolTip(self.tr("Project Tree View"), "Ctrl+T")
         self.tbProject.clicked.connect(qtWeakLambda(self._emitViewChange, nwView.PROJECT))
 
         self.tbNovel = NFlatIconButton(self, iSz, "sb_novel:sidebar", 0.25)
-        self.tbNovel.setToolTip("{0} [Ctrl+T]".format(self.tr("Novel Tree View")))
+        self.tbNovel.setToolTip(self.tr("Novel Tree View"), "Ctrl+T")
         self.tbNovel.clicked.connect(qtWeakLambda(self._emitViewChange, nwView.NOVEL))
 
         self.tbSearch = NFlatIconButton(self, iSz, "sb_search:sidebar", 0.25)
-        self.tbSearch.setToolTip("{0} [Ctrl+Shift+F]".format(self.tr("Project Search")))
+        self.tbSearch.setToolTip(self.tr("Project Search"), "Ctrl+Shift+F")
         self.tbSearch.clicked.connect(qtWeakLambda(self._emitViewChange, nwView.SEARCH))
 
         self.tbStory = NFlatIconButton(self, iSz, "sb_story:sidebar", 0.25)
-        self.tbStory.setToolTip("{0} [Ctrl+Shift+T]".format(self.tr("Story View")))
+        self.tbStory.setToolTip(self.tr("Story View"), "Ctrl+Shift+T")
         self.tbStory.clicked.connect(qtWeakLambda(self._emitViewChange, nwView.STORY))
 
         self.tbTheme = NFlatIconButton(self, iSz, "", 0.25)
@@ -80,11 +80,11 @@ class GuiSideBar(QWidget):
         self.tbTheme.clicked.connect(self._cycleColorTheme)
 
         self.tbStats = NFlatIconButton(self, iSz, "sb_stats:sidebar", 0.25)
-        self.tbStats.setToolTip("{0} [F6]".format(self.tr("Writing Statistics")))
+        self.tbStats.setToolTip(self.tr("Writing Statistics"), "F6")
         self.tbStats.clicked.connect(self.mainGui.showWritingStatsDialog)
 
         self.tbBuild = NFlatIconButton(self, iSz, "sb_build:sidebar", 0.25)
-        self.tbBuild.setToolTip("{0} [F5]".format(self.tr("Manuscript Build")))
+        self.tbBuild.setToolTip(self.tr("Manuscript Build"), "F5")
         self.tbBuild.clicked.connect(self.mainGui.showBuildManuscriptDialog)
 
         # Settings Menu
@@ -172,6 +172,7 @@ class _PopRightMenu(QMenu):
     def event(self, event: QEvent) -> bool:
         """Overload the show event and move the menu popup location."""
         if event.type() == QEvent.Type.Show and isinstance(parent := self.parent(), QWidget):
-            offset = QPoint(parent.width(), parent.height() - self.height())
+            xPos = -self.width() if parent.isRightToLeft() else parent.width()
+            offset = QPoint(xPos, parent.height() - self.height())
             self.move(parent.mapToGlobal(offset))
         return super().event(event)

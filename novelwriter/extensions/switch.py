@@ -21,7 +21,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-from PyQt6.QtCore import QPropertyAnimation, Qt, pyqtProperty, pyqtSlot  # pyright: ignore
+from PyQt6.QtCore import QPropertyAnimation, Qt, pyqtProperty, pyqtSlot  # type: ignore
 from PyQt6.QtGui import QEnterEvent, QPainter, QPaintEvent, QResizeEvent
 from PyQt6.QtWidgets import QAbstractButton, QWidget
 
@@ -97,7 +97,8 @@ class NSwitch(QAbstractButton):
 
         painter.setPen(QtNoPen)
         painter.setBrush(palette.highlightedText())
-        painter.drawEllipse(self._offset - self._rR, 2, self._rH, self._rH)
+        xPos = self._xW - self._offset if self.isRightToLeft() else self._offset
+        painter.drawEllipse(xPos - self._rR, 2, self._rH, self._rH)
 
         painter.end()
 

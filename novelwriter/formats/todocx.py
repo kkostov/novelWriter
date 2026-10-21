@@ -32,7 +32,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from PyQt6.QtCore import QMargins, QSize
 
 from novelwriter import __version__
-from novelwriter.common import firstFloat, xmlElement, xmlSubElem
+from novelwriter.common import firstFloat, textDirection, xmlElement, xmlSubElem
 from novelwriter.constants import nwHeadFmt, nwStyles, nwUnicode
 from novelwriter.formats.shared import BlockFmt, BlockTyp, T_Formats, TextFmt, stripEscape
 from novelwriter.formats.tokenizer import COMMENT_BLOCKS, LIST_BLOCKS, Tokenizer
@@ -193,12 +193,13 @@ class ToDocX(Tokenizer):
     """
 
     __slots__ = (
+        "_doublePages",
         "_files",
         "_fontFamily",
         "_fontSize",
         "_headerFormat",
+        "_headerFormatEven",
         "_mHorLine",
-        "_mirrorMargins",
         "_numLists",
         "_pageGutter",
         "_pageMargins",
@@ -216,6 +217,7 @@ class ToDocX(Tokenizer):
 
         # Properties
         self._headerFormat = ""
+        self._headerFormatEven = ""
         self._pageOffset = 0
 
         # Internal
@@ -224,7 +226,7 @@ class ToDocX(Tokenizer):
         self._pageSize = QSize(_mmToSz(210.0), _mmToSz(297.0))
         self._pageMargins = QMargins(_mmToSz(20.0), _mmToSz(20.0), _mmToSz(20.0), _mmToSz(20.0))
         self._pageGutter = 0
-        self._mirrorMargins = False
+        self._doublePages = False
         self._mHorLine = _mmToSz(42.5 / 20.0)
         self._numLists: list[bool] = []
 
@@ -249,18 +251,19 @@ class ToDocX(Tokenizer):
         left: float,
         right: float,
         gutter: float,
-        mirrored: bool,
+        doublePages: bool,
     ) -> None:
         """Set the document page size and margins in millimetres."""
         self._pageSize = QSize(_mmToSz(width), _mmToSz(height))
         self._pageMargins = QMargins(_mmToSz(left), _mmToSz(top), _mmToSz(right), _mmToSz(bottom))
         self._pageGutter = _mmToSz(gutter)
         self._mHorLine = _mmToSz((width - left - right - gutter) / 80.0)
-        self._mirrorMargins = mirrored
+        self._doublePages = doublePages
 
-    def setHeaderFormat(self, value: str, offset: int) -> None:
-        """Set the document header format."""
-        self._headerFormat = value.strip()
+    def setHeaderFormat(self, odd: str, even: str, offset: int) -> None:
+        """Set the document header formats for odd and even pages."""
+        self._headerFormat = odd.strip()
+        self._headerFormatEven = even.strip()
         self._pageOffset = offset
 
     ##
@@ -283,17 +286,28 @@ class ToDocX(Tokenizer):
             par = DocXParagraph()
             self._pars.append(par)
 
+            # In RTL documents, blocks without strong characters inherit RTL
+            rtlPar = self._isRTL
+            if rtlPar and textDirection(tText) == "ltr":
+                par.setBidi(False)
+                rtlPar = False
+
+            # Word treats left and right as start and end in RTL paragraphs
+            pLeft, pRight = ("right", "left") if rtlPar else ("left", "right")
+
             # Styles
             if tStyle & BlockFmt.LEFT:
-                par.setAlignment("left")
+                par.setAlignment(pLeft)
             elif tStyle & BlockFmt.RIGHT:
-                par.setAlignment("right")
+                par.setAlignment(pRight)
             elif tStyle & BlockFmt.CENTRE:
                 par.setAlignment("center")
             elif tStyle & BlockFmt.JUSTIFY:
                 par.setAlignment("both")
 
-            if tStyle & BlockFmt.PBB:
+            if tStyle & BlockFmt.HBB:
+                par.setOddPageBreak(True)
+            elif tStyle & BlockFmt.PBB:
                 par.setPageBreakBefore(True)
             if tStyle & BlockFmt.PBA:
                 par.setPageBreakAfter(True)
@@ -305,9 +319,10 @@ class ToDocX(Tokenizer):
 
             if tStyle & BlockFmt.IND_T:
                 par.setIndentFirst(True)
-            if tStyle & BlockFmt.IND_L:
+            indL, indR = (BlockFmt.IND_R, BlockFmt.IND_L) if rtlPar else (BlockFmt.IND_L, BlockFmt.IND_R)
+            if tStyle & indL:
                 par.setMarginLeft(bIndent)
-            if tStyle & BlockFmt.IND_R:
+            if tStyle & indR:
                 par.setMarginRight(bIndent)
 
             # Process Text Types
@@ -362,12 +377,15 @@ class ToDocX(Tokenizer):
 
         fId = None
         dId = None
-        if self._headerFormat:
-            dId = self._defaultHeaderXml()
+        eId = None
+        if self._headerFormat or (self._doublePages and self._headerFormatEven):
+            dId = self._headerXml("header1.xml", self._headerFormat, "right")
             fId = self._firstHeaderXml()
+            if self._doublePages:
+                eId = self._headerXml("header3.xml", self._headerFormatEven, "left")
 
-        self._documentXml(fId, dId)
-        self._settingsXml()
+        self._documentXml(fId, dId, eId)
+        self._settingsXml(eId is not None)
         if self._usedNotes:
             self._footnotesXml()
         if self._numLists:
@@ -498,8 +516,12 @@ class ToDocX(Tokenizer):
         rPr = xmlSubElem(xR, _wTag("rPr"))
         if fmt & X_BLD:
             xmlSubElem(rPr, _wTag("b"))
+            if self._isRTL:
+                xmlSubElem(rPr, _wTag("bCs"))
         if fmt & X_ITA:
             xmlSubElem(rPr, _wTag("i"))
+            if self._isRTL:
+                xmlSubElem(rPr, _wTag("iCs"))
         if fmt & X_UND:
             xmlSubElem(rPr, _wTag("u"), attrib={W_VAL: "single"})
         if fmt & X_MRK:
@@ -844,7 +866,11 @@ class ToDocX(Tokenizer):
         )
         xmlSubElem(xRPr, _wTag("sz"), attrib={W_VAL: size})
         xmlSubElem(xRPr, _wTag("szCs"), attrib={W_VAL: size})
-        xmlSubElem(xRPr, _wTag("lang"), attrib={W_VAL: self._dLocale.name()})
+        lang = {W_VAL: self._dLocale.name()}
+        if self._isRTL:
+            lang[_wTag("bidi")] = self._dLocale.name()
+            xmlSubElem(xPPr, _wTag("bidi"))
+        xmlSubElem(xRPr, _wTag("lang"), attrib=lang)
         xmlSubElem(xPPr, _wTag("spacing"), attrib={_wTag("line"): line})
 
         # Paragraph Styles
@@ -911,15 +937,15 @@ class ToDocX(Tokenizer):
 
         return rId
 
-    def _defaultHeaderXml(self) -> str:
-        """Populate header1.xml."""
+    def _headerXml(self, name: str, fmt: str, align: str) -> str:
+        """Populate a page header file."""
         rId = self._nextRelId()
         xRoot = xmlElement(_wTag("hdr"))
-        self._rels["header1.xml"] = DocXXmlRel(
+        self._rels[name] = DocXXmlRel(
             rId=rId,
             relType=f"{RELS_BASE}/header",
         )
-        self._files["header1.xml"] = DocXXmlFile(
+        self._files[name] = DocXXmlFile(
             xml=xRoot,
             path="word",
             contentType=f"{WORD_BASE}.header+xml",
@@ -928,10 +954,10 @@ class ToDocX(Tokenizer):
         xP = xmlSubElem(xRoot, _wTag("p"))
         xPPr = xmlSubElem(xP, _wTag("pPr"))
         xmlSubElem(xPPr, _wTag("pStyle"), attrib={W_VAL: S_HEAD})
-        xmlSubElem(xPPr, _wTag("jc"), attrib={W_VAL: "right"})
+        xmlSubElem(xPPr, _wTag("jc"), attrib={W_VAL: align})
         xmlSubElem(xPPr, _wTag("rPr"))
 
-        pre, page, post = self._headerFormat.partition(nwHeadFmt.DOC_PAGE)
+        pre, page, post = fmt.partition(nwHeadFmt.DOC_PAGE)
         pre = pre.replace(nwHeadFmt.DOC_PROJECT, self._project.data.name)
         pre = pre.replace(nwHeadFmt.DOC_AUTHOR, self._project.data.author)
         post = post.replace(nwHeadFmt.DOC_PROJECT, self._project.data.name)
@@ -981,7 +1007,7 @@ class ToDocX(Tokenizer):
 
         return rId
 
-    def _documentXml(self, hFirst: str | None, hDefault: str | None) -> str:
+    def _documentXml(self, hFirst: str | None, hDefault: str | None, hEven: str | None) -> str:
         """Populate document.xml."""
         rId = self._nextRelId()
         xRoot = xmlElement(_wTag("document"))
@@ -996,54 +1022,43 @@ class ToDocX(Tokenizer):
             contentType=f"{WORD_BASE}.document.main+xml",
         )
 
-        # Map all Page Break Before to After where possible
-        pars: list[DocXParagraph] = []
-        for i, par in enumerate(self._pars):
-            if i > 0 and par.pageBreakBefore:
-                prev = self._pars[i - 1]
-                par.setPageBreakBefore(False)
-                prev.setPageBreakAfter(True)
-
-            pars.append(par)
-
         # Replace fields if there are stats available
         if self._usedFields and self._counts:
             for xField, field in self._usedFields:
                 if (value := self._counts.get(field)) is not None:
                     xField.text = self._formatInt(value)
 
+        # Odd page breaks are section breaks, set on the preceding paragraph
+        first = True
+        for i, par in enumerate(self._pars):
+            if i > 0 and par.oddPageBreak:
+                self._pars[i - 1].setSection(self._sectionXml(first, hFirst, hDefault, hEven))
+                first = False
+
         # Write Paragraphs
-        for par in pars:
+        for par in self._pars:
             par.toXml(xBody)
 
-        # Write Settings
-        xSect = xmlSubElem(xBody, _wTag("sectPr"))
+        # Last Section
+        xBody.append(self._sectionXml(first, hFirst, hDefault, hEven))
+
+        return rId
+
+    def _sectionXml(self, first: bool, hFirst: str | None, hDefault: str | None, hEven: str | None) -> ET.Element:
+        """Generate section properties. Sections after the first start on odd pages."""
+        xSect = xmlElement(_wTag("sectPr"))
         if hFirst and hDefault:
-            xmlSubElem(
-                xSect,
-                _wTag("headerReference"),
-                attrib={
-                    _wTag("type"): "first",
-                    _mkTag("r", "id"): hFirst,
-                },
-            )
-            xmlSubElem(
-                xSect,
-                _wTag("headerReference"),
-                attrib={
-                    _wTag("type"): "default",
-                    _mkTag("r", "id"): hDefault,
-                },
-            )
+            if first:
+                xmlSubElem(xSect, _wTag("headerReference"), attrib={_wTag("type"): "first", _mkTag("r", "id"): hFirst})
+            xmlSubElem(xSect, _wTag("headerReference"), attrib={_wTag("type"): "default", _mkTag("r", "id"): hDefault})
+            if hEven:
+                xmlSubElem(xSect, _wTag("headerReference"), attrib={_wTag("type"): "even", _mkTag("r", "id"): hEven})
 
         xFn = xmlSubElem(xSect, _wTag("footnotePr"))
-        xmlSubElem(
-            xFn,
-            _wTag("numFmt"),
-            attrib={
-                W_VAL: "decimal",
-            },
-        )
+        xmlSubElem(xFn, _wTag("numFmt"), attrib={W_VAL: "decimal"})
+
+        if not first:
+            xmlSubElem(xSect, _wTag("type"), attrib={W_VAL: "oddPage"})
 
         xmlSubElem(
             xSect,
@@ -1067,17 +1082,20 @@ class ToDocX(Tokenizer):
                 _wTag("gutter"): str(self._pageGutter),
             },
         )
-        xmlSubElem(
-            xSect,
-            _wTag("pgNumType"),
-            attrib={
-                _wTag("start"): str(1 - self._pageOffset),
-                _wTag("fmt"): "decimal",
-            },
-        )
-        xmlSubElem(xSect, _wTag("titlePg"))
 
-        return rId
+        # Only the first section sets the page number, the rest continue
+        pgNum = {_wTag("fmt"): "decimal"}
+        if first:
+            pgNum = {_wTag("start"): str(1 - self._pageOffset), **pgNum}
+        xmlSubElem(xSect, _wTag("pgNumType"), attrib=pgNum)
+
+        if first:
+            xmlSubElem(xSect, _wTag("titlePg"))
+        if self._isRTL:
+            xmlSubElem(xSect, _wTag("bidi"))
+            xmlSubElem(xSect, _wTag("rtlGutter"))
+
+        return xSect
 
     def _footnotesXml(self) -> str:
         """Populate footnotes.xml."""
@@ -1097,6 +1115,8 @@ class ToDocX(Tokenizer):
             par = DocXParagraph()
             par.setIsFootnote(True)
             if content := self._footnotes.get(key):  # pragma: no branch
+                if self._isRTL and textDirection(content[0]) == "ltr":
+                    par.setBidi(False)
                 self._processFragments(par, S_FNOTE, content[0], content[1])
             par.toXml(xmlSubElem(xRoot, _wTag("footnote"), attrib={_wTag("id"): str(idx)}))
 
@@ -1178,7 +1198,7 @@ class ToDocX(Tokenizer):
 
         return rId
 
-    def _settingsXml(self) -> str:
+    def _settingsXml(self, evenHeaders: bool) -> str:
         """Populate settings.xml."""
         rId = self._nextRelId()
         xRoot = xmlElement(_wTag("settings"))
@@ -1192,8 +1212,10 @@ class ToDocX(Tokenizer):
             contentType=f"{WORD_BASE}.settings+xml",
         )
 
-        if self._mirrorMargins:
-            xSet = xmlSubElem(xRoot, _wTag("mirrorMargins"))
+        if self._doublePages:
+            xmlSubElem(xRoot, _wTag("mirrorMargins"))
+            if evenHeaders:
+                xmlSubElem(xRoot, _wTag("evenAndOddHeaders"))
 
         xSet = xmlSubElem(xRoot, _wTag("footnotePr"))
         xmlSubElem(xSet, _wTag("numFmt"), attrib={W_VAL: "decimal"})
@@ -1233,6 +1255,7 @@ class DocXParagraph:
     """
 
     __slots__ = (
+        "_bidi",
         "_borders",
         "_bottomMargin",
         "_breakAfter",
@@ -1242,7 +1265,9 @@ class DocXParagraph:
         "_indentFirst",
         "_leftMargin",
         "_numbering",
+        "_oddPage",
         "_rightMargin",
+        "_sectPr",
         "_style",
         "_textAlign",
         "_topMargin",
@@ -1259,18 +1284,21 @@ class DocXParagraph:
         self._indentFirst = False
         self._breakBefore = False
         self._breakAfter = False
+        self._oddPage = False
+        self._sectPr: ET.Element | None = None
         self._footnoteRef = False
         self._numbering: tuple[int, int] | None = None
         self._borders: dict[str, DocXBorder] = {}
+        self._bidi: bool | None = None
 
     ##
     #  Properties
     ##
 
     @property
-    def pageBreakBefore(self) -> bool:
-        """Has page break before."""
-        return self._breakBefore
+    def oddPageBreak(self) -> bool:
+        """Starts on a new odd page."""
+        return self._oddPage
 
     ##
     #  Setters
@@ -1284,6 +1312,10 @@ class DocXParagraph:
         """Set paragraph alignment."""
         if value in ("left", "center", "right", "both"):
             self._textAlign = value
+
+    def setBidi(self, state: bool) -> None:
+        """Set the paragraph direction, overriding the default."""
+        self._bidi = state
 
     def setMarginTop(self, value: float) -> None:
         """Set margin above in pt."""
@@ -1316,6 +1348,14 @@ class DocXParagraph:
     def setPageBreakAfter(self, state: bool) -> None:
         """Set page break after flag."""
         self._breakAfter = state
+
+    def setOddPageBreak(self, state: bool) -> None:
+        """Set odd page break before flag."""
+        self._oddPage = state
+
+    def setSection(self, sectPr: ET.Element) -> None:
+        """Set the properties of the section ending with this paragraph."""
+        self._sectPr = sectPr
 
     def setNumbering(self, numId: int, level: int) -> None:
         """Set list numbering instance and level."""
@@ -1350,10 +1390,14 @@ class DocXParagraph:
             # Paragraph
             pPr = xmlSubElem(xP, _wTag("pPr"))
             xmlSubElem(pPr, _wTag("pStyle"), attrib={W_VAL: style.styleId})
+            if self._breakBefore:
+                xmlSubElem(pPr, _wTag("pageBreakBefore"))
             if numbering := self._numbering:
                 xNum = xmlSubElem(pPr, _wTag("numPr"))
                 xmlSubElem(xNum, _wTag("ilvl"), attrib={W_VAL: str(numbering[1])})
                 xmlSubElem(xNum, _wTag("numId"), attrib={W_VAL: str(numbering[0])})
+            if self._bidi is not None:
+                xmlSubElem(pPr, _wTag("bidi"), attrib={W_VAL: "1" if self._bidi else "0"})
             if self._topMargin is not None or self._bottomMargin is not None:
                 xmlSubElem(
                     pPr,
@@ -1382,6 +1426,8 @@ class DocXParagraph:
                 xmlSubElem(pPr, _wTag("ind"), attrib=indent)
             if self._textAlign:
                 xmlSubElem(pPr, _wTag("jc"), attrib={W_VAL: self._textAlign})
+            if self._sectPr is not None:
+                pPr.append(self._sectPr)
 
             # Text
             if self._footnoteRef:
@@ -1389,9 +1435,6 @@ class DocXParagraph:
                 rPr = xmlSubElem(xR, _wTag("rPr"))
                 xmlSubElem(rPr, _wTag("vertAlign"), attrib={W_VAL: "superscript"})
                 xmlSubElem(xR, _wTag("footnoteRef"))
-            if self._breakBefore:
-                xR = xmlSubElem(xP, _wTag("r"))
-                xmlSubElem(xR, _wTag("br"), attrib={_wTag("type"): "page"})
             for xR in self._content:
                 xP.append(xR)
             if self._breakAfter:

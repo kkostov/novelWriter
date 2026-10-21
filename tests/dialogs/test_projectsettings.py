@@ -128,7 +128,7 @@ def testGuiProjectSettings_SettingsPage(
 
     # Set some values
     project = SHARED.project
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     project.data.setSpellLang("en")
     project.data.setAuthor("Jane Smith")
     project.data.setAutoReplace({"A": "B", "C": "D"})
@@ -144,12 +144,14 @@ def testGuiProjectSettings_SettingsPage(
     assert settings.projName.text() == "New Project"
     assert settings.projAuthor.text() == "Jane Smith"
     assert settings.projLang.currentData() == "en"
+    assert settings.isRTL.isChecked() is False
     assert settings.spellLang.currentData() == "en"
     assert settings.noBackup.isChecked() is False
 
     settings.projName.setText("Project Name")
     settings.projAuthor.setText("Jane Doe")
     settings.projLang.setCurrentIndex(settings.projLang.findData("de"))
+    settings.isRTL.setChecked(True)
     settings.spellLang.setCurrentIndex(settings.spellLang.findData("de"))
     settings.noBackup.setChecked(True)
 
@@ -157,6 +159,7 @@ def testGuiProjectSettings_SettingsPage(
     assert project.data.name == "Project Name"
     assert project.data.author == "Jane Doe"
     assert project.data.language == "de"
+    assert project.data.isRTL is True
     assert project.data.spellLang == "de"
     assert project.data.doBackup is False
 

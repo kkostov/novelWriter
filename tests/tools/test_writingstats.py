@@ -276,8 +276,8 @@ def testGuiWritingStats_Export(
     # I/O Error
     with monkeypatch.context() as mp:
         mp.setattr("builtins.open", causeOSError)
-        assert not sessLog._loadLogFile()
-        assert not sessLog._saveData(sessLog.FMT_CSV)
+        sessLog._loadLogFile()
+        assert sessLog._saveData(sessLog.FMT_CSV) is False
 
 
 @pytest.mark.gui

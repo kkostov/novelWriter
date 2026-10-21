@@ -89,6 +89,8 @@ class GuiDocPanes(QWidget):
         self.setLayout(self.outerBox)
 
         # Connect Signals
+        SHARED.indexAvailable.connect(self.docEditor.indexHasAppeared)
+        SHARED.indexAvailable.connect(self.docViewer.indexHasAppeared)
         SHARED.indexAvailable.connect(self.docViewerPanel.indexHasAppeared)
         SHARED.indexChangedRefs.connect(self.docViewerPanel.updateChangedRefs)
         SHARED.indexChangedTags.connect(self.docEditor.updateChangedTags)
@@ -291,7 +293,7 @@ class GuiDocPanes(QWidget):
 
         self.docEditor.replaceText(text)
 
-    def viewDocument(self, tHandle: str | None = None, sTitle: str | None = None) -> None:
+    def viewDocument(self, tHandle: str | None = None, sTitle: str | None = None, changeFocus: bool = False) -> None:
         """Load a document for viewing in the view panel."""
         if not SHARED.hasProject:
             logger.error("No project open")
@@ -338,6 +340,8 @@ class GuiDocPanes(QWidget):
 
             if sTitle:
                 self.docViewer.navigateTo(f"#{tHandle}:{sTitle}")
+            if changeFocus:
+                self.docViewer.setFocus()
 
     def closeViewerPanel(self, byUser: bool = True) -> None:
         """Close the document view panel."""
@@ -401,7 +405,7 @@ class GuiDocPanes(QWidget):
         if mode == nwDocMode.EDIT:
             self.openDocument(tHandle, sTitle=sTitle, changeFocus=setFocus)
         elif mode == nwDocMode.VIEW:
-            self.viewDocument(tHandle=tHandle, sTitle=sTitle)
+            self.viewDocument(tHandle=tHandle, sTitle=sTitle, changeFocus=setFocus)
         else:  # pragma: no cover
             pass
 

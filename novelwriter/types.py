@@ -71,6 +71,8 @@ QtPageBreakAuto = QTextFormat.PageBreakFlag.PageBreak_Auto
 
 QtTextUserProperty = QTextFormat.Property.UserProperty
 
+QtLayoutRTL = Qt.LayoutDirection.RightToLeft
+
 QtPropLineHeight = 1  # QTextBlockFormat.LineHeightTypes.ProportionalHeight
 
 QtElideLeft = Qt.TextElideMode.ElideLeft

@@ -122,6 +122,18 @@ def testGuiNovelView_Content(
     nwGUI.rebuildIndex()  # This should update the word count to the edited scene
     assert model.data(model.createIndex(2, 1), QtDisplayRole) == "10"  # Word Count
 
+    # Child counts are included in the parent headings, if enabled
+    chapter = SHARED.project.index.getItemHeading(C.hChapterDoc, "T0001")
+    assert chapter is not None
+    assert novelBar.aSubCounts.isChecked() is True
+    assert model.data(model.createIndex(1, 1), QtDisplayRole) == f"{chapter.mainCount + 10}"
+    novelBar.aSubCounts.trigger()
+    assert CONFIG.novelViewSubCounts is False
+    assert model.data(model.createIndex(1, 1), QtDisplayRole) == f"{chapter.mainCount}"
+    novelBar.aSubCounts.trigger()
+    assert CONFIG.novelViewSubCounts is True
+    assert model.data(model.createIndex(1, 1), QtDisplayRole) == f"{chapter.mainCount + 10}"
+
     # Extra Column
     # ============
     novelBar.setLastColType(nwNovelExtra.POV)

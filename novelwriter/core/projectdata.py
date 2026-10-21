@@ -77,6 +77,7 @@ class ProjectData:
         "_name",
         "_project",
         "_remainingCount",
+        "_rtl",
         "_saveCount",
         "_spellCheck",
         "_spellLang",
@@ -106,6 +107,7 @@ class ProjectData:
         # Project Settings
         self._doBackup = True
         self._language = None
+        self._rtl = False
         self._spellCheck = False
         self._spellLang = None
 
@@ -241,6 +243,11 @@ class ProjectData:
     def language(self) -> str | None:
         """Return the project language setting."""
         return self._language
+
+    @property
+    def isRTL(self) -> bool:
+        """Return if the project should be laid out as RTL."""
+        return self._rtl
 
     @property
     def spellCheck(self) -> bool:
@@ -415,10 +422,13 @@ class ProjectData:
         self._remainingCount = self._targetCount - (target - self._dailyProgress)
         self._targetLastCount = target
 
-    def setLanguage(self, value: str | None) -> None:
+    def setLanguage(self, value: str | None, rtl: bool | str | None) -> None:
         """Set the project language."""
-        if value != self._language:
-            self._language = checkStringNone(value, None)
+        language = checkStringNone(value, None)
+        isRTL = checkBool(rtl, False)
+        if language != self._language or isRTL != self._rtl:
+            self._language = language
+            self._rtl = isRTL
             self._project.setProjectChanged(True)
 
     def setSpellCheck(self, value: Any) -> None:

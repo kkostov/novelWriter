@@ -25,7 +25,7 @@ import dataclasses
 import logging
 import random
 
-from typing import TYPE_CHECKING, Literal, TypeGuard
+from typing import TYPE_CHECKING, Final, Literal, TypeGuard
 
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPixmap, QPolygonF
@@ -73,8 +73,8 @@ T_StatusKind = Literal["s", "i"]
 class ItemStatus:
     """Core: Status/Importance Label Class."""
 
-    STATUS = "s"
-    IMPORT = "i"
+    STATUS: Final = "s"
+    IMPORT: Final = "i"
 
     __slots__ = ("_default", "_height", "_prefix", "_store")
 

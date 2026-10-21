@@ -3,7 +3,8 @@
     "projectName": "Lorem Ipsum",
     "novelAuthor": "lipsum.com",
     "buildTime": 1791650010,
-    "buildTimeStr": "2026-10-10 18:33:30"
+    "buildTimeStr": "2026-10-10 18:33:30",
+    "direction": "ltr"
   },
   "text": {
     "css": [

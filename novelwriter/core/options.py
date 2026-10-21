@@ -28,7 +28,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from novelwriter import SHARED
+from novelwriter import CONFIG, SHARED
 from novelwriter.common import checkBool, checkFloat, checkInt, checkString, jsonEncode, safeExists
 from novelwriter.constants import nwFiles
 from novelwriter.error import logException
@@ -169,7 +169,7 @@ class OptionState:
 
         logger.debug("Saving GUI options file")
         try:
-            with open(stateFile, mode="w+", encoding="utf-8") as fObj:
+            with open(stateFile, mode="w+", encoding="utf-8", newline=CONFIG.lineEnding) as fObj:
                 data = {"novelWriter.guiOptions": self._state}
                 fObj.write(jsonEncode(data, nmax=4))
         except Exception as exc:

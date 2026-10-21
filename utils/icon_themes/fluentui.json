@@ -39,6 +39,7 @@
     "fmt_italic": "Text Italic",
     "fmt_link": "Link",
     "fmt_list_o": "Text Number List LTR",
+    "fmt_list_o_rtl": "Text Number List RTL",
     "fmt_list_u": "Text Bullet List",
     "fmt_mark": "Color Line",
     "fmt_size": "Text Font Size",

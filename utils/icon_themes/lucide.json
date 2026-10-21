@@ -39,6 +39,7 @@
     "fmt_italic": "italic",
     "fmt_link": "link",
     "fmt_list_o": "list-ordered",
+    "fmt_list_o_rtl": "list-ordered",
     "fmt_list_u": "list",
     "fmt_mark": "highlighter",
     "fmt_size": "a-large-small",

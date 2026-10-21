@@ -54,7 +54,7 @@ def trLabel(label: nwStdLabel) -> str:
 
 def trUnit(unit: nwStdUnit) -> str:
     """Return a translated standard unit."""
-    return QCoreApplication.translate("Unit", nwLabels.UNIT_LABELS.get(unit, ""))
+    return QCoreApplication.translate("Units", nwLabels.UNIT_LABELS.get(unit, ""))
 
 
 class nwConst:
@@ -382,6 +382,10 @@ class nwLabels:
         True: QT_TRANSLATE_NOOP("Constant", "Active"),
         False: QT_TRANSLATE_NOOP("Constant", "Inactive"),
     }
+    SAVED_NAME: ClassVar[dict[bool, str]] = {
+        True: QT_TRANSLATE_NOOP("Constant", "Saved"),
+        False: QT_TRANSLATE_NOOP("Constant", "Unsaved"),
+    }
     KEY_NAME: ClassVar[dict[str, str]] = {
         nwKeyWords.TAG_KEY: QT_TRANSLATE_NOOP("Constant", "Tag"),
         nwKeyWords.POV_KEY: QT_TRANSLATE_NOOP("Constant", "Point of View"),
@@ -574,6 +578,11 @@ class nwLabels:
         "meta": QT_TRANSLATE_NOOP("Constant", "Tags and references"),
         "comments": QT_TRANSLATE_NOOP("Constant", "Comments and footnotes"),
     }
+    BREAK_TYPES: ClassVar[dict[int, str]] = {
+        0: QT_TRANSLATE_NOOP("Constant", "No Break"),
+        1: QT_TRANSLATE_NOOP("Constant", "Any Page"),
+        2: QT_TRANSLATE_NOOP("Constant", "Odd Page"),
+    }
 
 
 class nwHeadFmt:
@@ -607,7 +616,8 @@ class nwHeadFmt:
     DOC_PROJECT = "{Project}"
     DOC_AUTHOR = "{Author}"
     DOC_PAGE = "{Page}"
-    DOC_AUTO = "{Project} / {Author} / {Page}"
+    DOC_AUTO_ODD = "{Project} / {Author} / {Page}"
+    DOC_AUTO_EVEN = "{Page} / {Author} / {Project}"
 
 
 class nwQuotes:
@@ -732,6 +742,7 @@ class nwUnicode:
     U_DIVIDE = "\u00f7"  # Division sign
 
     # Special
+    U_RLM = "\u200f"  # Right-to-left mark
     U_UNKN = "\ufffd"  # Unknown character
     U_NAC1 = "\ufffe"  # Not a character
     U_NAC2 = "\uffff"  # Not a character

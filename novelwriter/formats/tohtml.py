@@ -24,10 +24,11 @@ from __future__ import annotations
 import json
 import logging
 
+from html import unescape
 from time import time
 from typing import TYPE_CHECKING
 
-from novelwriter.common import formatTimeStamp
+from novelwriter.common import formatTimeStamp, textDirection
 from novelwriter.constants import nwHtmlUnicode
 from novelwriter.formats.shared import BlockFmt, BlockTyp, T_Formats, TextFmt, stripEscape
 from novelwriter.formats.tokenizer import COMMENT_BLOCKS, LIST_BLOCKS, Tokenizer
@@ -128,8 +129,9 @@ class ToHtml(Tokenizer):
         """Convert the list of text tokens into an HTML document."""
         lines = []
         for tType, tMeta, tText, tFmt, tStyle in self._blocks:
+            hDir = self._blockDir(tText)
             tText, tFmt = self._processHtmlEntities(tText, tFmt)
-            hStyle = self._genInlineStyles(tStyle)
+            hStyle = hDir + self._genInlineStyles(tStyle)
 
             if tStyle & BlockFmt.LIST_S:
                 lines.append("<ol>\n" if tType == BlockTyp.LIST_O else "<ul>\n")
@@ -208,7 +210,7 @@ class ToHtml(Tokenizer):
             for key, index in self._usedNotes.items():
                 if content := self._footnotes.get(key):  # pragma: no branch
                     text = self._formatText(*content)
-                    lines.append(f"<li id='footnote_{index}'><p>{text}</p></li>\n")
+                    lines.append(f"<li id='footnote_{index}'><p{self._blockDir(content[0])}>{text}</p></li>\n")
             lines.append("</ol>\n")
 
             self._pages.append("".join(lines))
@@ -223,6 +225,7 @@ class ToHtml(Tokenizer):
                     "novelAuthor": self._project.data.author,
                     "buildTime": int(ts),
                     "buildTimeStr": formatTimeStamp(ts),
+                    "direction": "rtl" if self._isRTL else "ltr",
                 },
                 "text": {
                     "css": self._generateStyleSheet(),
@@ -235,7 +238,8 @@ class ToHtml(Tokenizer):
         else:
             html = []
             html.append("<!DOCTYPE html>")
-            html.append(f"<html lang='{self._dLocale.bcp47Name()}'>")
+            hDir = " dir='rtl'" if self._isRTL else ""
+            html.append(f"<html lang='{self._dLocale.bcp47Name()}'{hDir}>")
             html.append("<head>")
             html.append(f"<title>{self._project.data.name:s}</title>")
             html.append("<meta charset='utf-8'>")
@@ -270,6 +274,7 @@ class ToHtml(Tokenizer):
         if not self._cssStyles:
             return []
 
+        defaultAlign = "start" if self._isRTL else self._defaultAlign
         tColor = self._theme.text.name(QtHexRgb)
         lColor = self._theme.head.name(QtHexRgb)
         mColor = self._theme.highlight.name(QtHexRgb)
@@ -315,7 +320,7 @@ class ToHtml(Tokenizer):
                 "font-style": fS,
             },
             "p": {
-                "text-align": self._defaultAlign,
+                "text-align": defaultAlign,
                 "line-height": f"{lHeight}%",
                 "margin-top": f"{mtTT:.2f}em",
                 "margin-bottom": f"{mbTT:.2f}em",
@@ -364,7 +369,7 @@ class ToHtml(Tokenizer):
                 "margin-bottom": f"{mbTT:.2f}em",
             },
             "li": {
-                "text-align": self._defaultAlign,
+                "text-align": defaultAlign,
                 "line-height": f"{lHeight}%",
             },
             ".title": {
@@ -390,6 +395,14 @@ class ToHtml(Tokenizer):
     #  Protected Functions (Shared with EPub)
     ##
 
+    def _blockDir(self, text: str) -> str:
+        """Return a direction attribute for LTR text in RTL documents.
+        Text without strong characters inherits RTL.
+        """
+        if self._isRTL and textDirection(unescape(text)) == "ltr":
+            return " dir='ltr'"
+        return ""
+
     def _genInlineStyles(self, tStyle: BlockFmt) -> str:
         """Generate inline styles for a block of text."""
         aStyle = []
@@ -402,7 +415,7 @@ class ToHtml(Tokenizer):
         elif tStyle & BlockFmt.JUSTIFY:
             aStyle.append("text-align: justify;")
 
-        if tStyle & BlockFmt.PBB:
+        if tStyle & BlockFmt.BREAK_B:
             aStyle.append("page-break-before: always;")
         if tStyle & BlockFmt.PBA:
             aStyle.append("page-break-after: always;")

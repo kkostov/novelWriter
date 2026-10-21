@@ -1,15 +1,15 @@
 <?xml version='1.0' encoding='utf-8'?>
-<novelWriterXML appVersion="26.3a0" hexVersion="0x260300a0" fileVersion="1.6" fileRevision="0" timeStamp="2026-10-10 19:31:35">
-  <project id="e2be99af-f9bf-4403-857a-c3d1ac25abea" saveCount="2426" autoCount="437" editTime="112643" indexRevision="554">
+<novelWriterXML appVersion="26.3b1" hexVersion="0x260300b1" fileVersion="1.6" fileRevision="0" timeStamp="2026-10-20 20:47:01">
+  <project id="e2be99af-f9bf-4403-857a-c3d1ac25abea" saveCount="2431" autoCount="437" editTime="112699" indexRevision="60">
     <name>Sample Project</name>
     <author>Jane Smith</author>
   </project>
   <settings>
     <doBackup>no</doBackup>
-    <language>en_GB</language>
+    <language rtl="no">en_GB</language>
     <spellChecking auto="yes">None</spellChecking>
     <projectTarget date="None" last="1183" mode="words">15000</projectTarget>
-    <dailyTarget auto="no" last="46" date="2026-10-10">1000</dailyTarget>
+    <dailyTarget auto="no" last="0" date="2026-10-20">1000</dailyTarget>
     <targetSkipRoots>
       <entry>d2d81f4831814</entry>
     </targetSkipRoots>

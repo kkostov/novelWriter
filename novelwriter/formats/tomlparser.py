@@ -26,7 +26,7 @@ import tomllib
 
 from enum import Enum
 from pathlib import Path
-from typing import TypeVar
+from typing import TypeVar, cast
 
 from PyQt6.QtGui import QFont
 
@@ -83,7 +83,7 @@ class NTomlParser:
     def writeString(self, data: T_TomlConfig | T_TomlObject) -> str:
         """Format a dict of sections, or a flat dict, as TOML."""
         if self._flat:
-            lines = [f"{key} = {self._dump(value)}" for key, value in data.items()]  # type: ignore[union-attr]
+            lines = [f"{key} = {self._dump(value)}" for key, value in cast("T_TomlObject", data).items()]
             return "\n".join(lines) + "\n" if lines else ""
 
         lines = []

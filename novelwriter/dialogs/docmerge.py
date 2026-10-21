@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import logging
 
+from typing import Any
+
 from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -57,7 +59,7 @@ class GuiDocMerge(NDialog):
         self.setObjectName("GuiDocMerge")
         self.setWindowTitle(self.tr("Merge Documents"))
 
-        self._data = {}
+        self._data: dict[str, Any] = {}
 
         self.headLabel = QLabel(self.tr("Documents to Merge"), self)
         self.headLabel.setFont(SHARED.theme.guiFontB)

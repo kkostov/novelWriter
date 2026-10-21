@@ -26,13 +26,13 @@ import xml.etree.ElementTree as ET
 
 from datetime import datetime
 from hashlib import sha256
-from typing import TYPE_CHECKING, ClassVar, Literal, NamedTuple
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from PyQt6.QtGui import QColor, QFont
 
 from novelwriter import __version__
-from novelwriter.common import xmlElement, xmlIndent, xmlSubElem
+from novelwriter.common import textDirection, xmlElement, xmlIndent, xmlSubElem
 from novelwriter.constants import nwHeadFmt, nwStyles, nwUnicode
 from novelwriter.formats.shared import BlockFmt, BlockTyp, TextFmt, stripEscape
 from novelwriter.formats.tokenizer import COMMENT_BLOCKS, LIST_BLOCKS, META_BLOCKS, Tokenizer
@@ -126,10 +126,14 @@ S_FIND = "First_20_line_20_indent"
 S_TEXT = "Text_20_body"
 S_META = "Text_20_Meta"
 S_HNF = "Header_20_and_20_Footer"
+S_HEADER = "Header"
+S_HEADL = "Header_20_Left"
 S_NUM = "N0"
 S_LIST = "List"
 S_BULL = "List_20_Bullet"
 S_NUMB = "Numbering_20_123"
+S_FIRST = "First_20_Page"
+S_RIGHT = "Right_20_Page"
 
 # Font Data
 FONT_WEIGHT_NUM = ["100", "200", "300", "400", "500", "600", "700", "800", "900"]
@@ -155,8 +159,10 @@ class ToOdt(Tokenizer):
         "_dMeta",
         "_dSett",
         "_dStyl",
+        "_dblPages",
         "_errData",
         "_fBlockIndent",
+        "_firstPar",
         "_fontBold",
         "_fontFamily",
         "_fontPitch",
@@ -165,6 +171,7 @@ class ToOdt(Tokenizer):
         "_fontWeight",
         "_headWeight",
         "_headerFormat",
+        "_headerFormatEven",
         "_isFlat",
         "_mDocBtm",
         "_mDocGutter",
@@ -174,11 +181,11 @@ class ToOdt(Tokenizer):
         "_mDocTop",
         "_mDocWidth",
         "_mHorLine",
-        "_mMirrored",
         "_mainPara",
         "_nNote",
         "_pageOffset",
         "_textFont",
+        "_useRight",
         "_xAut2",
         "_xAuto",
         "_xBody",
@@ -225,6 +232,7 @@ class ToOdt(Tokenizer):
         self._textFont = QFont("Liberation Serif", 12)
         self._headWeight = "bold"
         self._headerFormat = ""
+        self._headerFormatEven = ""
         self._pageOffset = 0
 
         # Internal
@@ -238,18 +246,20 @@ class ToOdt(Tokenizer):
         self._dLanguage = "en"
         self._dCountry = "GB"
 
-        # Document Size and Margins
-        self._mDocWidth = "21.0cm"
-        self._mDocHeight = "29.7cm"
-        self._mDocTop = "2.000cm"
-        self._mDocBtm = "2.000cm"
-        self._mDocLeft = "2.000cm"
-        self._mDocRight = "2.000cm"
-        self._mDocGutter = "0.000cm"
-        self._mMirrored = False
+        # Document Size and Margins (Millimetres)
+        self._mDocWidth = 210.0
+        self._mDocHeight = 297.0
+        self._mDocTop = 20.0
+        self._mDocBtm = 20.0
+        self._mDocLeft = 20.0
+        self._mDocRight = 20.0
+        self._mDocGutter = 0.0
+        self._dblPages = False
+        self._useRight = False
+        self._firstPar = True
 
         # Horizontal Line Margin
-        self._mHorLine = "4.250cm"  # Quarter of the text width
+        self._mHorLine = 42.5  # Text width divided by 4
 
     ##
     #  Setters
@@ -264,22 +274,23 @@ class ToOdt(Tokenizer):
         left: float,
         right: float,
         gutter: float,
-        mirrored: bool,
+        doublePages: bool,
     ) -> None:
         """Set the document page size and margins in millimetres."""
-        self._mDocWidth = f"{width / 10.0:.3f}cm"
-        self._mDocHeight = f"{height / 10.0:.3f}cm"
-        self._mDocTop = f"{top / 10.0:.3f}cm"
-        self._mDocBtm = f"{bottom / 10.0:.3f}cm"
-        self._mDocLeft = f"{(left + gutter) / 10.0:.3f}cm"
-        self._mDocRight = f"{right / 10.0:.3f}cm"
-        self._mDocGutter = f"{gutter / 10.0:.3f}cm"
-        self._mMirrored = mirrored
-        self._mHorLine = f"{(width - left - right - gutter) / 40.0:.3f}cm"  # Quarter of the text width
+        self._mDocWidth = width
+        self._mDocHeight = height
+        self._mDocTop = top
+        self._mDocBtm = bottom
+        self._mDocLeft = left
+        self._mDocRight = right
+        self._mDocGutter = gutter
+        self._dblPages = doublePages
+        self._mHorLine = (width - left - right - gutter) / 4.0
 
-    def setHeaderFormat(self, value: str, offset: int) -> None:
-        """Set the document header format."""
-        self._headerFormat = value.strip()
+    def setHeaderFormat(self, odd: str, even: str, offset: int) -> None:
+        """Set the document header formats for odd and even pages."""
+        self._headerFormat = odd.strip()
+        self._headerFormatEven = even.strip()
         self._pageOffset = offset
 
     ##
@@ -422,6 +433,8 @@ class ToOdt(Tokenizer):
         for tType, _, tText, tFormat, tStyle in self._blocks:
             # Styles
             oStyle = ODTParagraphStyle("New")
+            if self._isRTL and textDirection(tText) == "ltr":
+                oStyle.setWritingMode("lr-tb")
             if tStyle & BlockFmt.LEFT:
                 oStyle.setTextAlign("left")
             elif tStyle & BlockFmt.RIGHT:
@@ -431,10 +444,16 @@ class ToOdt(Tokenizer):
             elif tStyle & BlockFmt.JUSTIFY:
                 oStyle.setTextAlign("justify")
 
-            if tStyle & BlockFmt.PBB:
+            if tStyle & BlockFmt.HBB:
+                oStyle.setMasterPageName(S_RIGHT)
+                self._useRight = True
+            elif self._firstPar:
+                oStyle.setMasterPageName(S_FIRST)
+            elif tStyle & BlockFmt.PBB:
                 oStyle.setBreakBefore("page")
             if tStyle & BlockFmt.PBA:
                 oStyle.setBreakAfter("page")
+            self._firstPar = False
 
             if tStyle & (BlockFmt.Z_TOP | BlockFmt.Z_BTM):
                 mTop, mBtm = self._marginMeta if tType in META_BLOCKS else self._marginText
@@ -495,6 +514,8 @@ class ToOdt(Tokenizer):
 
     def closeDocument(self) -> None:
         """Add additional collected information to the XML."""
+        if self._useRight:
+            self._writeRightPageStyle()
         for style in self._autoPara.values():
             style.packXML(self._xAuto)
         for style in self._autoText.values():
@@ -737,6 +758,8 @@ class ToOdt(Tokenizer):
         if content := self._footnotes.get(key):
             self._nNote += 1
             nStyle = ODTParagraphStyle("New")
+            if self._isRTL and textDirection(content[0]) == "ltr":
+                nStyle.setWritingMode("lr-tb")
             xNote = xmlElement(
                 _mkTag("text", "note"),
                 attrib={
@@ -791,27 +814,33 @@ class ToOdt(Tokenizer):
 
     def _pageStyles(self) -> None:
         """Set the default page style."""
+        self._addPageLayout("PM1", "mirrored" if self._dblPages else "all")
+
+    def _addPageLayout(self, name: str, usage: str) -> None:
+        """Add a page layout style."""
         xPage = ET.SubElement(
             self._xAuto if self._isFlat else self._xAut2,
             _mkTag("style", "page-layout"),
             attrib={
-                _mkTag("style", "name"): "PM1",
-                _mkTag("style", "page-usage"): "mirrored" if self._mMirrored else "all",
+                _mkTag("style", "name"): name,
+                _mkTag("style", "page-usage"): usage,
             },
         )
-        ET.SubElement(
-            xPage,
-            _mkTag("style", "page-layout-properties"),
-            attrib={
-                _mkTag("fo", "page-width"): self._mDocWidth,
-                _mkTag("fo", "page-height"): self._mDocHeight,
-                _mkTag("fo", "margin-top"): self._mDocTop,
-                _mkTag("fo", "margin-bottom"): self._mDocBtm,
-                _mkTag("fo", "margin-left"): self._mDocLeft,
-                _mkTag("fo", "margin-right"): self._mDocRight,
-                _mkTag("loext", "margin-gutter"): self._mDocGutter,
-            },
-        )
+        mLeft = self._mDocLeft + (0.0 if self._isRTL else self._mDocGutter)
+        mRight = self._mDocRight + (self._mDocGutter if self._isRTL else 0.0)
+        pAttr = {
+            _mkTag("fo", "page-width"): f"{self._mDocWidth / 10.0:.3f}cm",
+            _mkTag("fo", "page-height"): f"{self._mDocHeight / 10.0:.3f}cm",
+            _mkTag("fo", "margin-top"): f"{self._mDocTop / 10.0:.3f}cm",
+            _mkTag("fo", "margin-bottom"): f"{self._mDocBtm / 10.0:.3f}cm",
+            _mkTag("fo", "margin-left"): f"{mLeft / 10.0:.3f}cm",
+            _mkTag("fo", "margin-right"): f"{mRight / 10.0:.3f}cm",
+            _mkTag("loext", "margin-gutter"): f"{self._mDocGutter / 10.0:.3f}cm",
+        }
+        if self._isRTL:
+            pAttr[_mkTag("style", "writing-mode")] = "rl-tb"
+            pAttr[_mkTag("loext", "rtl-gutter")] = "true"
+        ET.SubElement(xPage, _mkTag("style", "page-layout-properties"), attrib=pAttr)
 
         xHead = ET.SubElement(xPage, _mkTag("style", "header-style"))
         ET.SubElement(
@@ -959,7 +988,7 @@ class ToOdt(Tokenizer):
         style.setMarginTop(self._emToCm(self._marginText[0]))
         style.setMarginBottom(self._emToCm(self._marginText[1]))
         style.setLineHeight(lineHeight)
-        style.setTextAlign(self._defaultAlign)
+        style.setTextAlign("start" if self._isRTL else self._defaultAlign)
         style.setFontName(self._fontFamily)
         style.setFontFamily(self._fontFamily)
         style.setFontSize(textSize)
@@ -1040,8 +1069,8 @@ class ToOdt(Tokenizer):
         style.setClass("html")
         style.setMarginTop(self._emToCm(0))
         style.setMarginBottom(self._emToCm(self._marginSep[1]))
-        style.setMarginLeft(self._mHorLine)
-        style.setMarginRight(self._mHorLine)
+        style.setMarginLeft(f"{(self._mHorLine) / 10.0:.3f}cm")
+        style.setMarginRight(f"{(self._mHorLine) / 10.0:.3f}cm")
         style.setBorderLeft(ODTBorderStyle("none"))
         style.setBorderRight(ODTBorderStyle("none"))
         style.setBorderTop(ODTBorderStyle("none"))
@@ -1118,12 +1147,21 @@ class ToOdt(Tokenizer):
         self._mainPara[style.name] = style
 
         # Add Header Style
-        style = ODTParagraphStyle("Header")
+        style = ODTParagraphStyle(S_HEADER)
         style.setDisplayName("Header")
         style.setParentStyleName(S_HNF)
-        style.setTextAlign("right")
+        style.setTextAlign("left" if self._isRTL else "right")
         style.packXML(self._xStyl)
         self._mainPara[style.name] = style
+
+        # Add Even Page Header Style
+        if self._dblPages:
+            style = ODTParagraphStyle(S_HEADL)
+            style.setDisplayName("Header Left")
+            style.setParentStyleName(S_HNF)
+            style.setTextAlign("right" if self._isRTL else "left")
+            style.packXML(self._xStyl)
+            self._mainPara[style.name] = style
 
         # Add Footnote Style
         style = ODTParagraphStyle("Footnote")
@@ -1138,7 +1176,7 @@ class ToOdt(Tokenizer):
         self._mainPara[style.name] = style
 
     def _writeHeaderStyle(self) -> None:
-        """Write the header elements."""
+        """Write the master pages with header elements."""
         xPage = ET.SubElement(
             self._xMast,
             _mkTag("style", "master-page"),
@@ -1147,32 +1185,66 @@ class ToOdt(Tokenizer):
                 _mkTag("style", "page-layout-name"): "PM1",
             },
         )
+        if self._hasHeader():
+            self._writePageHeader(xPage, "header", S_HEADER, self._headerFormat)
+            if self._dblPages:
+                self._writePageHeader(xPage, "header-left", S_HEADL, self._headerFormatEven)
 
-        # Standard Page Header
-        if self._headerFormat:
-            pre, page, post = self._headerFormat.partition(nwHeadFmt.DOC_PAGE)
+        # The first page has an empty header to keep the same text area
+        xPage = ET.SubElement(
+            self._xMast,
+            _mkTag("style", "master-page"),
+            attrib={
+                _mkTag("style", "name"): S_FIRST,
+                _mkTag("style", "display-name"): "First Page",
+                _mkTag("style", "page-layout-name"): "PM1",
+                _mkTag("style", "next-style-name"): "Standard",
+            },
+        )
+        if self._hasHeader():
+            self._writePageHeader(xPage, "header", S_HEADER, "")
 
-            pre = pre.replace(nwHeadFmt.DOC_PROJECT, self._project.data.name)
-            pre = pre.replace(nwHeadFmt.DOC_AUTHOR, self._project.data.author)
-            post = post.replace(nwHeadFmt.DOC_PROJECT, self._project.data.name)
-            post = post.replace(nwHeadFmt.DOC_AUTHOR, self._project.data.author)
+    def _writeRightPageStyle(self) -> None:
+        """Write the right page style used for odd page breaks."""
+        self._addPageLayout("PM2", "right")
+        xPage = ET.SubElement(
+            self._xMast,
+            _mkTag("style", "master-page"),
+            attrib={
+                _mkTag("style", "name"): S_RIGHT,
+                _mkTag("style", "display-name"): "Right Page",
+                _mkTag("style", "page-layout-name"): "PM2",
+                _mkTag("style", "next-style-name"): "Standard",
+            },
+        )
+        if self._hasHeader():
+            self._writePageHeader(xPage, "header", S_HEADER, self._headerFormat)
 
-            xHead = ET.SubElement(xPage, _mkTag("style", "header"))
-            xPar = ET.SubElement(xHead, _mkTag("text", "p"), attrib={_mkTag("text", "style-name"): "Header"})
-            xPar.text = pre
-            if page:
-                attr = {_mkTag("text", "select-page"): "current"}
-                if self._pageOffset > 0:
-                    attr = {_mkTag("text", "page-adjust"): str(0 - self._pageOffset)}
-                xTail = ET.SubElement(xPar, _mkTag("text", "page-number"), attrib=attr)
-                xTail.text = "2"
-                xTail.tail = post
-            else:
-                xPar.text += post
+    def _hasHeader(self) -> bool:
+        """Check if the master pages should have a header."""
+        return bool(self._headerFormat or (self._dblPages and self._headerFormatEven))
 
-        # First Page Header
-        xHead = ET.SubElement(xPage, _mkTag("style", "header-first"))
-        xPar = ET.SubElement(xHead, _mkTag("text", "p"), attrib={_mkTag("text", "style-name"): "Header"})
+    def _writePageHeader(self, xPage: ET.Element, tag: str, style: str, fmt: str) -> None:
+        """Write a page header element to a master page."""
+        pre, page, post = fmt.partition(nwHeadFmt.DOC_PAGE)
+
+        pre = pre.replace(nwHeadFmt.DOC_PROJECT, self._project.data.name)
+        pre = pre.replace(nwHeadFmt.DOC_AUTHOR, self._project.data.author)
+        post = post.replace(nwHeadFmt.DOC_PROJECT, self._project.data.name)
+        post = post.replace(nwHeadFmt.DOC_AUTHOR, self._project.data.author)
+
+        xHead = ET.SubElement(xPage, _mkTag("style", tag))
+        xPar = ET.SubElement(xHead, _mkTag("text", "p"), attrib={_mkTag("text", "style-name"): style})
+        xPar.text = pre
+        if page:
+            attr = {_mkTag("text", "select-page"): "current"}
+            if self._pageOffset > 0:
+                attr = {_mkTag("text", "page-adjust"): str(0 - self._pageOffset)}
+            xTail = ET.SubElement(xPar, _mkTag("text", "page-number"), attrib=attr)
+            xTail.text = "2"
+            xTail.tail = post
+        else:
+            xPar.text += post
 
     def _writeListStyle(self) -> None:
         """Write the list styles."""
@@ -1238,6 +1310,7 @@ class ODTParagraphStyle:
 
     VALID_ALIGN: ClassVar[list[str]] = ["start", "center", "end", "justify", "left", "right"]
     VALID_BREAK: ClassVar[list[str]] = ["auto", "page", "even-page", "odd-page", "inherit"]
+    VALID_WRITE: ClassVar[list[str]] = ["lr-tb", "rl-tb", "page"]
     VALID_LEVEL: ClassVar[list[str]] = ["1", "2", "3", "4"]
     VALID_CLASS: ClassVar[list[str]] = ["text", "chapter", "extra", "html", "list"]
     VALID_WEIGHT: ClassVar[list[str]] = ["normal", "bold", *FONT_WEIGHT_NUM]
@@ -1247,16 +1320,17 @@ class ODTParagraphStyle:
         self._name = name
 
         # Attributes
-        self._mAttr = {
+        self._mAttr: dict[str, list[Any]] = {
             "display-name": ["style", None],
             "parent-style-name": ["style", None],
             "next-style-name": ["style", None],
             "default-outline-level": ["style", None],
             "class": ["style", None],
+            "master-page-name": ["style", None],
         }
 
         # Paragraph Attributes
-        self._pAttr = {
+        self._pAttr: dict[str, list[Any]] = {
             "margin-top": ["fo", None],
             "margin-bottom": ["fo", None],
             "margin-left": ["fo", None],
@@ -1268,12 +1342,13 @@ class ODTParagraphStyle:
             "text-indent": ["fo", None],
             "line-height": ["fo", None],
             "text-align": ["fo", None],
+            "writing-mode": ["style", None],
             "break-before": ["fo", None],
             "break-after": ["fo", None],
         }
 
         # Text Attributes
-        self._tAttr = {
+        self._tAttr: dict[str, list[Any]] = {
             "font-name": ["style", None],
             "font-family": ["fo", None],
             "font-size": ["fo", None],
@@ -1323,6 +1398,10 @@ class ODTParagraphStyle:
             self._mAttr["class"][1] = value
         else:
             self._mAttr["class"][1] = None
+
+    def setMasterPageName(self, value: str | None) -> None:
+        """Set master page name."""
+        self._mAttr["master-page-name"][1] = value
 
     ##
     #  Paragraph Setters
@@ -1374,6 +1453,13 @@ class ODTParagraphStyle:
             self._pAttr["text-align"][1] = value
         else:
             self._pAttr["text-align"][1] = None
+
+    def setWritingMode(self, value: str | None) -> None:
+        """Set paragraph writing mode."""
+        if value in self.VALID_WRITE:
+            self._pAttr["writing-mode"][1] = value
+        else:
+            self._pAttr["writing-mode"][1] = None
 
     def setBreakBefore(self, value: str | None) -> None:
         """Set page break before policy."""
@@ -1493,7 +1579,7 @@ class ODTTextStyle:
 
     def __init__(self, name: str) -> None:
         self._name = name
-        self._tAttr = {
+        self._tAttr: dict[str, list[Any]] = {
             "font-weight": ["fo", None],
             "font-style": ["fo", None],
             "color": ["fo", None],

@@ -25,6 +25,7 @@ from pathlib import Path
 
 import pytest
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from pytestqt.qtbot import QtBot
 
@@ -36,6 +37,7 @@ from novelwriter.core.project import NWProject
 from novelwriter.dialogs.editlabel import GuiEditLabel
 from novelwriter.enum import nwChange
 from novelwriter.guimain import GuiMain
+from novelwriter.types import QtDisplayRole
 
 from tests.helpers import C, MockRnd, buildTestProject
 
@@ -233,6 +235,7 @@ def testGuiDocViewerPanel_Tags(
     assert item.text(charTab.C_NAME) == "John"
     assert item.text(charTab.C_DOC) == "John"
     assert item.text(charTab.C_TITLE) == "John"
+    assert item.data(charTab.C_USES, QtDisplayRole) == 1
 
     # Edit Jane
     nwGUI.docPanes.openDocument(hJane)
@@ -245,6 +248,14 @@ def testGuiDocViewerPanel_Tags(
     assert item.text(charTab.C_NAME) == "Janey"
     assert item.text(charTab.C_DOC) == "Awesome Jane"
     assert item.text(charTab.C_TITLE) == "Jane Smith"
+    assert item.data(charTab.C_USES, QtDisplayRole) == 0
+
+    # Counts update when references change, and sort numerically
+    assert SHARED.project.index.scanText(
+        C.hSceneDoc, "### Scene\n@char: Janey\n" + "".join(f"### S{i}\n@char: John\n" for i in range(10))
+    )
+    charTab.sortByColumn(charTab.C_USES, Qt.SortOrder.AscendingOrder)
+    assert [charTab.topLevelItem(i).data(charTab.C_USES, QtDisplayRole) for i in range(2)] == [1, 10]  # type: ignore
 
     # Clear Index
     SHARED.project.index.clear()

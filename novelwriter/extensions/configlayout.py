@@ -23,12 +23,22 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPalette
-from PyQt6.QtWidgets import QAbstractButton, QFrame, QHBoxLayout, QLabel, QLayout, QScrollArea, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QAbstractButton,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLayout,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 from novelwriter import SHARED
+from novelwriter.common import qtVisualAlign
 from novelwriter.constants import nwUnicode
 from novelwriter.enum import nwState
-from novelwriter.types import QtFontNormal, QtFontSemiBold, QtHexArgb, QtScrollAsNeeded
+from novelwriter.types import QtAlignLeftMiddle, QtFontNormal, QtFontSemiBold, QtHexArgb, QtScrollAsNeeded
 
 DEFAULT_SCALE = 0.9
 
@@ -166,6 +176,7 @@ class NScrollableForm(QScrollArea):
     def addGroupLabel(self, label: str, identifier: int | None = None) -> None:
         """Add a text label to separate groups of settings."""
         qLabel = QLabel(label, self)
+        qLabel.setAlignment(qtVisualAlign(self, QtAlignLeftMiddle))
         qLabel.setFont(SHARED.theme.guiFontB)
         qLabel.setContentsMargins(0, 4, 0, 4)
         if not self._first:
@@ -204,6 +215,7 @@ class NScrollableForm(QScrollArea):
         qWidget.setAccessibleName(label)
 
         qLabel = QLabel(label or "", self)
+        qLabel.setAlignment(qtVisualAlign(self, QtAlignLeftMiddle))
         qLabel.setIndent(self._indent)
         qLabel.setBuddy(qWidget)
         if editable:
@@ -218,6 +230,7 @@ class NScrollableForm(QScrollArea):
                 wrap=True,
                 indent=self._indent,
             )
+            qHelp.setAlignment(qtVisualAlign(self, QtAlignLeftMiddle))
             qHelp.setBuddy(qWidget)
             qWidget.setAccessibleDescription(helpText)
             labelBox = QVBoxLayout()

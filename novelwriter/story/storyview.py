@@ -27,7 +27,7 @@ import logging
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import Qt, pyqtSlot
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QComboBox, QCompleter, QFileDialog, QHBoxLayout, QVBoxLayout, QWidget
 
 from novelwriter import CONFIG, SHARED
@@ -56,6 +56,8 @@ VIEW_CLASSES: dict[type[StoryViewSettings], type[GuiStoryViewBase]] = {
 
 class GuiStoryView(QWidget):
     """GUI: Project Story View."""
+
+    openDocumentRequest = pyqtSignal(str, Enum, str, bool)
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
@@ -256,6 +258,11 @@ class GuiStoryView(QWidget):
             self._loadViews()
         self._refreshCurrentView()
 
+    def cycleTabs(self) -> None:
+        """Switch to the next view tab, wrapping around."""
+        if (count := self.tabMain.count()) > 1:
+            self.tabMain.setCurrentIndex((self.tabMain.currentIndex() + 1) % count)
+
     ##
     #  Public Slots
     ##
@@ -411,6 +418,7 @@ class GuiStoryView(QWidget):
         if viewClass := VIEW_CLASSES.get(type(view)):
             widget = viewClass(self, view)
             widget.setHighlight(self._highlight)
+            widget.openDocumentRequest.connect(self.openDocumentRequest)
             return self.tabMain.addTab(widget, view.name)
         return -1
 

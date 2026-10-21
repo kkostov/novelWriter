@@ -41,7 +41,7 @@ from novelwriter.core.project import NWProject
 from novelwriter.core.projectsearch import DocSearch, T_SearchResults
 from novelwriter.enum import nwChange, nwDocMode, nwView
 from novelwriter.guimain import GuiMain
-from novelwriter.types import QtDisplayRole, QtKeyDown, QtKeyReturn, QtKeyUp
+from novelwriter.types import QtDisplayRole, QtKeyDown, QtKeyReturn, QtKeyUp, QtTransparent
 
 from tests.helpers import C, MockRnd, buildTestProject
 
@@ -478,3 +478,38 @@ def testGuiProjectSearch_DelegatePaint(nwGUI: GuiMain, fncPath: Path, mockRnd: M
     painter = QPainter(pixmap)
     delegate.paint(painter, option, matchIdx)
     painter.end()
+
+    # The highlight follows the text layout and the view direction
+    def matchSpan(text: str, direction: Qt.LayoutDirection) -> tuple[int, int]:
+        model.setResult(item, [(0, 3, text, 0)], False)
+        index = model.index(0, 0, model.index(0, 0, root))
+        option.rect = QRect(0, 0, 200, 20)
+        option.direction = direction
+        canvas = QPixmap(200, 20)
+        canvas.fill(QtTransparent)
+        painter = QPainter(canvas)
+        delegate.paint(painter, option, index)
+        painter.end()
+        image = canvas.toImage()
+        ref = delegate._rectColM
+        xs = [
+            x
+            for x in range(200)
+            if (c := image.pixelColor(x, 15)).alpha() == ref.alpha()
+            and abs(c.red() - ref.red()) + abs(c.green() - ref.green()) + abs(c.blue() - ref.blue()) < 6
+        ]
+        return min(xs), max(xs)
+
+    ltr = Qt.LayoutDirection.LeftToRight
+    rtl = Qt.LayoutDirection.RightToLeft
+
+    # English text starts at the left in LTR views, and the right in RTL views
+    aL, _ = matchSpan("abc def", ltr)
+    assert aL < 20
+    aL, _ = matchSpan("abc def", rtl)
+    assert aL > 100
+
+    # The first word of RTL text is drawn on the right of the text
+    word = "متن"
+    aL, _ = matchSpan(f"{word} {word}", ltr)
+    assert aL > 20

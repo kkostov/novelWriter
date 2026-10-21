@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import pytest
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QTextBlock, QTextCharFormat, QTextCursor, QTextFormat, QTextLength, QTextListFormat
 
 from novelwriter import CONFIG
@@ -38,6 +39,7 @@ from novelwriter.types import (
     QtAlignLeft,
     QtAlignRight,
     QtFontBold,
+    QtLayoutRTL,
     QtMoveEnd,
     QtPageBreakAfter,
     QtPageBreakAuto,
@@ -399,7 +401,7 @@ def testToQTextDocument_TextBlockFormats(mockGUI: MockGuiMain):
     block = doc.document.findBlockByNumber(1)
     assert block.text() == "Left"
     bFmt = block.blockFormat()
-    assert bFmt.alignment() == QtAlignLeft
+    assert bFmt.alignment() == QtAlignAbsolute | QtAlignLeft
 
     # 2: Center
     block = doc.document.findBlockByNumber(2)
@@ -411,7 +413,7 @@ def testToQTextDocument_TextBlockFormats(mockGUI: MockGuiMain):
     block = doc.document.findBlockByNumber(3)
     assert block.text() == "Right"
     bFmt = block.blockFormat()
-    assert bFmt.alignment() == QtAlignRight
+    assert bFmt.alignment() == QtAlignAbsolute | QtAlignRight
 
     # 4: Left Indent
     block = doc.document.findBlockByNumber(4)
@@ -445,6 +447,31 @@ def testToQTextDocument_TextBlockFormats(mockGUI: MockGuiMain):
     assert bFmt.textIndent() == doc._tIndent
     assert bFmt.leftMargin() == 0.0
     assert bFmt.rightMargin() == 0.0
+
+    # Right-to-Left
+    # =============
+    doc = ToQTextDocument(project)
+    doc.setLanguage(None, True)
+    doc.initDocument()
+
+    doc._text = "Text\n\nمتن\n\n1234\n\n"
+    doc.tokenizeText()
+    doc.doConvert()
+    doc.closeDocument()
+    assert doc.document.blockCount() == 3
+
+    # Text with strong characters keeps its own direction
+    block = doc.document.findBlockByNumber(0)
+    assert block.textDirection() == Qt.LayoutDirection.LeftToRight
+    assert not block.blockFormat().alignment() & QtAlignAbsolute
+    block = doc.document.findBlockByNumber(1)
+    assert block.textDirection() == QtLayoutRTL
+    assert block.blockFormat().layoutDirection() == Qt.LayoutDirection.LayoutDirectionAuto
+
+    # Text without strong characters uses the project direction
+    block = doc.document.findBlockByNumber(2)
+    assert block.textDirection() == QtLayoutRTL
+    assert block.blockFormat().layoutDirection() == QtLayoutRTL
 
     # Unreachable
     # ===========

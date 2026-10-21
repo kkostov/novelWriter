@@ -116,8 +116,9 @@ class ToEPub(ToHtml):
     def doConvert(self) -> None:
         """Convert the list of text tokens into HTML."""
         for tType, tMeta, tText, tFmt, tStyle in self._blocks:
+            hDir = self._blockDir(tText)
             tText, tFmt = self._processHtmlEntities(tText, tFmt)
-            hStyle = self._genInlineStyles(tStyle)
+            hStyle = hDir + self._genInlineStyles(tStyle)
 
             if tStyle & BlockFmt.LIST_S:
                 self._section.text.append("<ol>" if tType == BlockTyp.LIST_O else "<ul>")
@@ -138,7 +139,7 @@ class ToEPub(ToHtml):
                 self._sections.append(self._section)
 
                 tHead = tText.replace("\n", self._brTag)
-                self._section.setTitle(tHead, "H1")
+                self._section.setTitle(tHead, "H1", hDir)
                 self._isFront = False
 
             elif tType == BlockTyp.HEAD1:
@@ -146,7 +147,7 @@ class ToEPub(ToHtml):
                 if self._isNovel:
                     self._section = EPubSection(EPubType.CHAPTER)
                     self._sections.append(self._section)
-                    self._section.setTitle(tHead, "H1")
+                    self._section.setTitle(tHead, "H1", hDir)
                     self._isFront = False
                 else:
                     self._section.text.append(f"<h1{hStyle}>{tHead}</h1>")
@@ -226,7 +227,7 @@ class ToEPub(ToHtml):
             outZip.writestr("OEBPS/nav.xhtml", self._generateNavPage())
             outZip.writestr("OEBPS/styles/stylesheet.css", self._generateStyleSheet())
             for section in self._sections:
-                outZip.writestr(f"OEBPS/xhtml/{section.name}.xhtml", section.sectionToXHtml(lang))
+                outZip.writestr(f"OEBPS/xhtml/{section.name}.xhtml", section.sectionToXHtml(lang, self._isRTL))
 
     ##
     #  EPub Files
@@ -303,7 +304,10 @@ class ToEPub(ToHtml):
             xmlSubElem(xManifest, "item", attrib=attrib)
 
         # Spine
-        xSpine = xmlSubElem(xRoot, "spine", attrib={"toc": "toc"})
+        sAttr = {"toc": "toc"}
+        if self._isRTL:
+            sAttr["page-progression-direction"] = "rtl"
+        xSpine = xmlSubElem(xRoot, "spine", attrib=sAttr)
         for section in self._sections:
             xmlSubElem(xSpine, "itemref", attrib={"idref": section.sectionID})
 
@@ -359,12 +363,13 @@ class ToEPub(ToHtml):
         """Generate the content XHtml page."""
         langCode = self._dLocale.name()
         title = self._localLookup("Contents")
+        hDir = ' dir="rtl"' if self._isRTL else ""
 
         xHtml = ['<?xml version="1.0" encoding="UTF-8"?>']
         xHtml.append("<!DOCTYPE html>")
         xHtml.append(
             '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" '
-            f'lang="{langCode}" xml:lang="{langCode}">'
+            f'lang="{langCode}" xml:lang="{langCode}"{hDir}>'
         )
         xHtml.append("<head>")
         xHtml.append(f"<title>{title}</title>")
@@ -421,8 +426,10 @@ class ToEPub(ToHtml):
 
         if content := self._footnotes.get(key):  # pragma: no branch
             text = self._formatText(*content)
+            hDir = self._blockDir(content[0])
+            link = f"<a href='#fns_{index}'>{index}.</a>"
             self._section.footnotes.append(
-                f"<aside epub:type='footnote' id='fn_{index}'><p><a href='#fns_{index}'>{index}.</a> {text}</p></aside>"
+                f"<aside epub:type='footnote' id='fn_{index}'><p{hDir}>{link} {text}</p></aside>"
             )
 
         return f"<sup><a epub:type='noteref' href='#fn_{index}' id='fns_{index}'>{index}</a></sup>"
@@ -438,7 +445,7 @@ class EPubSection:
     See: https://www.w3.org/TR/epub-ssv/#sec-partitions
     """
 
-    __slots__ = ("_class", "_footnotes", "_id", "_name", "_text", "_title", "_type")
+    __slots__ = ("_class", "_dir", "_footnotes", "_id", "_name", "_text", "_title", "_type")
 
     BODY_TYPE: Final[dict[EPubType, str]] = {
         EPubType.COVER: "cover",
@@ -463,6 +470,7 @@ class EPubSection:
         self._id = ""
         self._title = ""
         self._class = ""
+        self._dir = ""
         self._text: list[str] = []
         self._footnotes: list[str] = []
 
@@ -505,12 +513,13 @@ class EPubSection:
         self._name = name
         self._id = f"sec_{sid}"
 
-    def setTitle(self, title: str, cssClass: str) -> None:
+    def setTitle(self, title: str, cssClass: str, hDir: str = "") -> None:
         """Set the title. This is useful if the title isn't available
         when the section is created.
         """
         self._title = title
         self._class = cssClass
+        self._dir = hDir
 
     ##
     #  Methods
@@ -520,17 +529,18 @@ class EPubSection:
         """Return True if there is text."""
         return self._title != "" or len(self._text) > 0
 
-    def sectionToXHtml(self, langCode: str) -> str:
+    def sectionToXHtml(self, langCode: str, rtl: bool = False) -> str:
         """Pack all content into an XHtml string."""
         eType, eRole = self.SECTION_TYPE.get(self._type, (None, None))
         sType = f' epub:type="{eType}"' if eType else ""
         sRole = f' role="{eRole}"' if eRole else ""
         hClass = f' class="{self._class}"' if self._class else ""
+        hDir = ' dir="rtl"' if rtl else ""
         xHtml = ['<?xml version="1.0" encoding="UTF-8"?>']
         xHtml.append("<!DOCTYPE html>")
         xHtml.append(
             '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" '
-            f'lang="{langCode}" xml:lang="{langCode}">'
+            f'lang="{langCode}" xml:lang="{langCode}"{hDir}>'
         )
         xHtml.append("<head>")
         if self._title:
@@ -542,7 +552,7 @@ class EPubSection:
         xHtml.append(f'<section{sType}{sRole} aria-labelledby="{self._id}">')
         if self._title:
             xHtml.append("<header>")
-            xHtml.append(f'<h1{hClass} id="{self._id}">{self._title}</h1>')
+            xHtml.append(f'<h1{hClass}{self._dir} id="{self._id}">{self._title}</h1>')
             xHtml.append("</header>")
         xHtml.extend(self._text)
         xHtml.append("</section>")

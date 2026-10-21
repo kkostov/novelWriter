@@ -195,11 +195,13 @@ def testGuiPreferences_Settings(
         prefs.nativeFont.setChecked(True)  # Use OS font dialog
         prefs.guiFontButton.click()
 
+    prefs.guiForceRTL.setChecked(True)
     prefs.hideVScroll.setChecked(True)
     prefs.hideHScroll.setChecked(True)
     prefs.useCharCount.setChecked(True)
 
     assert CONFIG.guiLocale != "en_US"
+    assert CONFIG.guiForceRTL is False
     assert CONFIG.lightTheme == "default_light"
     assert CONFIG.darkTheme == "default_dark"
     assert CONFIG.guiFont.family() != ""
@@ -404,6 +406,11 @@ def testGuiPreferences_Settings(
 
     prefs.vimMode.setChecked(True)
 
+    # Advanced
+    assert CONFIG.forceUnixLineEndings is False
+
+    prefs.forceUnixLineEndings.setChecked(True)
+
     # Save Settings
     with monkeypatch.context() as mp:
         mp.setattr(QFontDatabase, "families", lambda *a: ["TestFont"])
@@ -431,6 +438,7 @@ def testGuiPreferences_Settings(
     assert CONFIG.lightTheme == "theme1"
     assert CONFIG.darkTheme == "theme3"
     assert CONFIG.guiFont == QFont()
+    assert CONFIG.guiForceRTL is True
     assert CONFIG.hideVScroll is True
     assert CONFIG.hideHScroll is True
     assert CONFIG.useCharCount is True
@@ -519,6 +527,9 @@ def testGuiPreferences_Settings(
         "Are you sure you want to enable Vim mode?",
         "This changes how the editor accepts input.",
     ]
+
+    # Advanced
+    assert CONFIG.forceUnixLineEndings is True
 
     # qtbot.stop()
 

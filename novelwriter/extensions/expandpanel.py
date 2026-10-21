@@ -77,6 +77,7 @@ class NExpandablePanel(QWidget):
     def setTitle(self, title: str) -> None:
         """Set the title of the panel."""
         self._ep_label.setText(title)
+        self._ep_toggle.setAccessibleName(title)
 
     def setExpanded(self, expanded: bool) -> None:
         """Set the expanded state of the panel."""

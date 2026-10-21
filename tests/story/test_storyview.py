@@ -33,7 +33,7 @@ from pytestqt.qtbot import QtBot
 
 from novelwriter import SHARED
 from novelwriter.constants import nwFiles
-from novelwriter.enum import nwChange, nwView
+from novelwriter.enum import nwChange, nwFocus, nwView
 from novelwriter.guimain import GuiMain
 from novelwriter.shared import _GuiAlert
 from novelwriter.story.outline import GuiOutlineViewSettings, GuiStoryOutlineView
@@ -114,6 +114,10 @@ def testStoryView_ManageViews(monkeypatch: pytest.MonkeyPatch, nwGUI: GuiMain, p
     assert savedNames() == ["Outline"]
     assert isinstance(tabMain.currentWidget(), GuiStoryOutlineView)
 
+    # A single tab is not cycled
+    storyView.cycleTabs()
+    assert tabMain.currentIndex() == 0
+
     # Only known view kinds get a tab
     assert storyView._addTab(StoryViewSettings()) == -1
 
@@ -137,6 +141,17 @@ def testStoryView_ManageViews(monkeypatch: pytest.MonkeyPatch, nwGUI: GuiMain, p
     # Showing the view again does not reload the views
     nwGUI.changeView(nwView.STORY)
     assert tabMain.count() == 3
+
+    # The focus shortcut shows the story view, then cycles its tabs
+    nwGUI.changeView(nwView.EDITOR)
+    tabMain.setCurrentIndex(1)
+    nwGUI._switchFocus(nwFocus.STORY)
+    assert nwGUI.mainStack.currentWidget() is storyView
+    assert tabMain.currentIndex() == 1
+    nwGUI._switchFocus(nwFocus.STORY)
+    assert tabMain.currentIndex() == 2
+    nwGUI._switchFocus(nwFocus.STORY)
+    assert tabMain.currentIndex() == 0
 
     # Refresh and theme update
     storyView.refreshView.click()

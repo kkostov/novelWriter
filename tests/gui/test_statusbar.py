@@ -62,10 +62,14 @@ def testGuiStatusBar_Main(
     # Project Status
     status.setProjectStatus(None)
     assert status.projIcon.state is None
+    assert status.projIcon.accessibleName() == "Project"
     status.setProjectStatus(False)
     assert status.projIcon.state is False
+    assert status.projIcon.accessibleName() == "Project: Unsaved"
     status.setProjectStatus(True)
     assert status.projIcon.state is True
+    assert status.projIcon.accessibleName() == "Project: Saved"
+    assert status.projIcon.toolTip() == "Project: Saved"
 
     # Document Status
     status.setDocumentStatus(None)
@@ -74,6 +78,7 @@ def testGuiStatusBar_Main(
     assert status.docIcon.state is False
     status.setDocumentStatus(True)
     assert status.docIcon.state is True
+    assert status.docIcon.accessibleName() == "Editor: Saved"
 
     # Idle Status
     CONFIG.stopWhenIdle = False

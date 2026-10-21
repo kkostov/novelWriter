@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import logging
 
+from typing import Any
+
 from PyQt6.QtCore import pyqtSlot
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -58,7 +60,7 @@ class GuiDocSplit(NDialog):
         logger.debug("Create: GuiDocSplit")
         self.setObjectName("GuiDocSplit")
 
-        self._data = {}
+        self._data: dict[str, Any] = {}
         self._text = []
 
         self.setWindowTitle(self.tr("Split Document"))

@@ -35,7 +35,6 @@ from PyQt6.QtWidgets import QApplication, QFileDialog, QGridLayout, QMessageBox,
 
 from novelwriter.common import appendIfSet, formatFileFilter, joinLines
 from novelwriter.constants import nwFiles
-from novelwriter.core.spellcheck import createSpellChecker
 from novelwriter.enum import nwChange, nwItemClass, nwStandardButton
 from novelwriter.types import QtSizeExpanding, QtSizeMinimum
 
@@ -479,6 +478,7 @@ class SharedData(QObject):
     def _resetProject(self) -> None:
         """Create a new project and spell checking instance."""
         from novelwriter.core.project import NWProject
+        from novelwriter.core.spellcheck import createSpellChecker
 
         if isinstance(self._project, NWProject):
             self._project.clear()

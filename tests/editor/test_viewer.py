@@ -408,6 +408,10 @@ def testGuiDocViewer_HoverCard(qtbot: QtBot, nwGUI: GuiMain, projPath: Path, moc
     docViewer.updateChangedTags([], [])
     assert docViewer._hoverCard._cache == {"bob": "<p>Cached</p>"}
 
+    # A new or rebuilt index clears the whole cache
+    docViewer.indexHasAppeared()
+    assert docViewer._hoverCard._cache == {}
+
     docViewer._hoverCard.hide()
 
 

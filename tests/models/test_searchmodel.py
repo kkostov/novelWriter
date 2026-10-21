@@ -33,7 +33,7 @@ from pytestqt.qtbot import QtBot
 from novelwriter import SHARED
 from novelwriter.core.project import NWProject
 from novelwriter.models.searchmodel import SearchNode, SearchResultModel
-from novelwriter.types import QtDisplayRole, QtForegroundRole, QtUserRole
+from novelwriter.types import QtAccessibleTextRole, QtDisplayRole, QtForegroundRole, QtUserRole
 
 from tests.helpers import C, MockRnd, buildTestProject
 from tests.mocked import MockGuiMain
@@ -129,6 +129,8 @@ def testSearchModel_Interface(mockGUI: MockGuiMain, mockRnd: MockRnd, fncPath: P
     assert model.data(model.index(0, 1, root), QtDisplayRole) == "(1)"
     assert model.data(sceneIdx, QtDisplayRole) == "New Scene"
     assert model.data(model.index(1, 1, root), QtDisplayRole) == "(2+)"
+    assert model.data(model.index(0, 1, root), QtAccessibleTextRole) == "1 matches"
+    assert model.data(model.index(1, 1, root), QtAccessibleTextRole) == "2+ matches"
     assert model.data(model.index(1, 1, root), QtForegroundRole) == QBrush(SHARED.theme.accentText)
     assert model.handle(titleIdx) == title.itemHandle
     assert model.handle(sceneIdx) == scene.itemHandle

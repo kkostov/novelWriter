@@ -592,6 +592,23 @@ def testGuiTheme_LoadIcons():
     assert qPix.width() == 50, "If this fails, make sure QT_SCALE_FACTOR=1"
     assert qPix.height() == 50, "If this fails, make sure QT_SCALE_FACTOR=1"
 
+    # Directional icons are mirrored in RTL mode, others are not
+    size = QSize(64, 64)
+    ltrChevron = iconCache._loadIcon("chevron_left").pixmap(size).toImage()
+    ltrAdd = iconCache._loadIcon("add").pixmap(size).toImage()
+    ltrList = iconCache._loadIcon("fmt_list_o").pixmap(size).toImage()
+    CONFIG.rtlMode = True
+    rtlChevron = iconCache._loadIcon("chevron_left").pixmap(size).toImage()
+    rtlAdd = iconCache._loadIcon("add").pixmap(size).toImage()
+    rtlList = iconCache._loadIcon("fmt_list_o").pixmap(size).toImage()
+    assert rtlChevron != ltrChevron
+    assert rtlChevron == ltrChevron.mirrored(True, False)
+    assert rtlAdd == ltrAdd
+
+    # Icons with an RTL variant use it in RTL mode
+    assert rtlList != ltrList
+    assert rtlList == iconCache._loadIcon("fmt_list_o_rtl").pixmap(size).toImage()
+
     # Load app icon
     qIcon = iconCache.getIcon("novelwriter")
     assert isinstance(qIcon, QIcon)

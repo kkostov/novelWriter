@@ -172,7 +172,7 @@
   </office:styles>
   <office:automatic-styles>
     <style:page-layout style:name="PM1" style:page-usage="all">
-      <style:page-layout-properties fo:page-width="21.0cm" fo:page-height="29.7cm" fo:margin-top="2.000cm" fo:margin-bottom="2.000cm" fo:margin-left="2.000cm" fo:margin-right="2.000cm" loext:margin-gutter="0.000cm" />
+      <style:page-layout-properties fo:page-width="21.000cm" fo:page-height="29.700cm" fo:margin-top="2.000cm" fo:margin-bottom="2.000cm" fo:margin-left="2.000cm" fo:margin-right="2.000cm" loext:margin-gutter="0.000cm" />
       <style:header-style>
         <style:header-footer-properties fo:min-height="0.635cm" fo:margin-left="0.000cm" fo:margin-right="0.000cm" fo:margin-bottom="0.212cm" />
       </style:header-style>
@@ -183,9 +183,11 @@
       <style:header>
         <text:p text:style-name="Header">Test Project - Jane Smith</text:p>
       </style:header>
-      <style:header-first>
+    </style:master-page>
+    <style:master-page style:name="First_20_Page" style:display-name="First Page" style:page-layout-name="PM1" style:next-style-name="Standard">
+      <style:header>
         <text:p text:style-name="Header" />
-      </style:header-first>
+      </style:header>
     </style:master-page>
   </office:master-styles>
 </office:document-styles>

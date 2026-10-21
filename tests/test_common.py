@@ -30,8 +30,10 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from PyQt6.QtCore import QMimeData, QUrl
+from PyQt6.QtCore import QMimeData, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QFont, QFontDatabase, QFontInfo
+from PyQt6.QtWidgets import QWidget
+from pytestqt.qtbot import QtBot
 
 from novelwriter.common import (
     appendIfSet,
@@ -77,6 +79,7 @@ from novelwriter.common import (
     openExternalPath,
     processDialogSymbols,
     processLangCode,
+    qtVisualAlign,
     qtWeakLambda,
     readTextFile,
     safeExists,
@@ -84,6 +87,7 @@ from novelwriter.common import (
     safeIsFile,
     safeIterDir,
     simplified,
+    textDirection,
     transferCase,
     uniqueCompact,
     utf16CharMap,
@@ -92,6 +96,7 @@ from novelwriter.common import (
     xmlSubElem,
     yesNo,
 )
+from novelwriter.types import QtAlignAbsolute, QtAlignCenter, QtAlignLeft, QtAlignRight
 
 from tests.helpers import TstPaths, writeFile
 from tests.mocked import causeOSError
@@ -539,6 +544,19 @@ def testCommon_elide():
     assert elide("Hello World!", 2) == " ..."
     assert elide("Hello World!", 1) == " ..."
     assert elide("Hello World!", 0) == " ..."
+
+
+@pytest.mark.base
+def testCommon_textDirection():
+    """Test the textDirection function."""
+    assert textDirection("") == ""
+    assert textDirection("1234 - !?") == ""
+    assert textDirection("Text") == "ltr"
+    assert textDirection("12 Text") == "ltr"
+    assert textDirection("متن") == "rtl"
+    assert textDirection("שלום") == "rtl"
+    assert textDirection("12 متن Text") == "rtl"
+    assert textDirection("[i]متن") == "ltr"
 
 
 @pytest.mark.base
@@ -1014,3 +1032,17 @@ def testCommon_qtWeakLambda():
     del obj
     assert ref() is None
     wrapper()
+
+
+@pytest.mark.gui
+def testCommon_qtVisualAlign(qtbot: QtBot):
+    """Test the qtVisualAlign function."""
+    widget = QWidget()
+    qtbot.addWidget(widget)
+    assert qtVisualAlign(widget, QtAlignLeft) == QtAlignAbsolute | QtAlignLeft
+    assert qtVisualAlign(widget, QtAlignRight) == QtAlignAbsolute | QtAlignRight
+
+    widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    assert qtVisualAlign(widget, QtAlignLeft) == QtAlignAbsolute | QtAlignRight
+    assert qtVisualAlign(widget, QtAlignRight) == QtAlignAbsolute | QtAlignLeft
+    assert qtVisualAlign(widget, QtAlignCenter) == QtAlignCenter

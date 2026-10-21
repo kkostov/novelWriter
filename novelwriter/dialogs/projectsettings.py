@@ -200,12 +200,13 @@ class GuiProjectSettings(NDialog):
         projName = self.settingsPage.projName.text()
         projAuthor = self.settingsPage.projAuthor.text()
         projLang = self.settingsPage.projLang.currentData()
+        isRTL = self.settingsPage.isRTL.isChecked()
         spellLang = self.settingsPage.spellLang.currentData()
         doBackup = not self.settingsPage.noBackup.isChecked()
 
         project.data.setName(projName)
         project.data.setAuthor(projAuthor)
-        project.setProjectLang(projLang)
+        project.setProjectLang(projLang, isRTL)
         project.data.setSpellLang(spellLang)
         project.data.setDoBackup(doBackup)
 
@@ -326,6 +327,15 @@ class _SettingsPage(NScrollableForm):
             self.tr("Disable backup on close"),
             self.noBackup,
             self.tr("Overrides main preferences."),
+        )
+
+        # RTL Support
+        self.isRTL = NSwitch(self)
+        self.isRTL.setChecked(data.isRTL)
+        self.addRow(
+            self.tr("Enable right-to-left text support"),
+            self.isRTL,
+            self.tr("Improves RTL text handling in editor and manuscript."),
         )
 
         self.finalise()

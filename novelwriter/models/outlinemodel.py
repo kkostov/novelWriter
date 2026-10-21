@@ -27,14 +27,14 @@ import math
 from typing import TYPE_CHECKING, NamedTuple
 
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QIcon
 
 from novelwriter import CONFIG, SHARED
 from novelwriter.common import formatPercent
-from novelwriter.constants import nwLabels, nwStats, nwStyles, nwUnicode, trConst, trLabel, trStats
-from novelwriter.enum import nwStdLabel
+from novelwriter.constants import nwLabels, nwStyles, nwUnicode, trConst, trLabel, trUnit
+from novelwriter.enum import nwStdLabel, nwStdUnit
 from novelwriter.story.storysettings import COMMENT_SYNOPSIS
-from novelwriter.types import QtDisplayRole, QtTransparent
+from novelwriter.types import QtAccessibleTextRole, QtDisplayRole, QtTransparent
 
 if TYPE_CHECKING:
     from novelwriter.core.index import Index
@@ -53,6 +53,7 @@ class _TrCache(NamedTuple):
     sStory: str
     sNote: str
     sKeys: dict[str, str]
+    sLevels: dict[str, str]
 
 
 class NodeStyle(NamedTuple):
@@ -73,6 +74,7 @@ class OutlineNode:
     """
 
     __slots__ = (
+        "_cCount",
         "_chars",
         "_columns",
         "_entries",
@@ -82,9 +84,11 @@ class OutlineNode:
         "_level",
         "_lists",
         "_progress",
+        "_status",
         "_style",
         "_title",
         "_tr",
+        "_wCount",
         "_words",
     )
 
@@ -106,9 +110,12 @@ class OutlineNode:
         # Parsed Data
         self._level = 0
         self._title = ""
+        self._cCount = 0
+        self._wCount = 0
         self._words = ""
         self._chars = ""
         self._progress = ""
+        self._status: tuple[str, QIcon] | None = None
         self._lists: dict[str, list[str]] = {}
         self._entries: list[list[tuple[str, str, str, str]]] = []
         self._style = style
@@ -150,6 +157,11 @@ class OutlineNode:
         return self._progress
 
     @property
+    def status(self) -> tuple[str, QIcon] | None:
+        """The status label and icon of the heading's document, if set."""
+        return self._status
+
+    @property
     def style(self) -> NodeStyle:
         """The style for the heading's structural level."""
         return self._style
@@ -174,6 +186,18 @@ class OutlineNode:
         """
         return self._entries[column] if 0 <= column < len(self._entries) else []
 
+    def accessibleTitle(self) -> str:
+        """Return the title column content as plain text."""
+        level = self._tr.sLevels.get(self._heading.level, "") if self._heading else ""
+        title = f"{level}: {self._title}" if level else self._title
+        status = self._status[0] if self._status else ""
+        return ", ".join(t for t in (title, self.counts, self._progress, status) if t)
+
+    def accessibleEntries(self, column: int) -> str:
+        """Return the entries of a column as plain text, with full labels."""
+        entries = (f"{label}: {text}" if label else text for _, label, _, text in self.entries(column))
+        return ", ".join(entries).replace(nwUnicode.U_LSEP, " ")
+
     ##
     #  Data Maintenance
     ##
@@ -182,14 +206,25 @@ class OutlineNode:
         """Set the page number and word count progress fraction."""
         self._progress = f"{self._tr.sPage.format(f'{page:n}')} ({formatPercent(fraction, prec=1)})"
 
+    def setStatus(self, label: str, icon: QIcon) -> None:
+        """Set the status label and icon."""
+        self._status = (label, icon)
+
+    def addCounts(self, chars: int, words: int) -> None:
+        """Add the character and word counts of a child heading."""
+        self._cCount += chars
+        self._wCount += words
+        self._formatCounts()
+
     def refresh(self) -> None:
         """Refresh data values."""
         tr = self._tr
         if h := self._heading:
             self._level = nwStyles.H_LEVEL.get(h.level, 0)
             self._title = h.title
-            self._words = f"{h.wordCount:n} {tr.sWords}"
-            self._chars = f"{h.charCount:n} {tr.sChars}"
+            self._cCount = h.charCount
+            self._wCount = h.wordCount
+            self._formatCounts()
 
             self._lists = {k: v for k, v in h.getReferences().items() if v}
 
@@ -213,6 +248,15 @@ class OutlineNode:
                         entries.append((key, label, short, nwUnicode.U_LSEP.join(t for t in text.split("\n") if t)))
                 self._entries.append(entries)
 
+    ##
+    #  Internal Functions
+    ##
+
+    def _formatCounts(self) -> None:
+        """Format the count labels."""
+        self._words = f"{self._wCount:n} {self._tr.sWords}"
+        self._chars = f"{self._cCount:n} {self._tr.sChars}"
+
 
 class OutlineModel(QAbstractTableModel):
     """Core: Outline Model Class.
@@ -230,13 +274,14 @@ class OutlineModel(QAbstractTableModel):
         self._fixed = [trLabel(nwStdLabel.STORY)]
         self._headers = self._fixed.copy()
         self._labels = _TrCache(
-            sWords=trStats(nwLabels.STATS_NAME[nwStats.WORDS]),
-            sChars=trStats(nwLabels.STATS_NAME[nwStats.CHARS]),
+            sWords=trUnit(nwStdUnit.WORDS),
+            sChars=trUnit(nwStdUnit.CHARS),
             sPage=self.tr("Page {0}"),
             sSynopsis="",
             sStory="",
             sNote="",
             sKeys={k: trConst(v) for k, v in nwLabels.KEY_NAME.items()},
+            sLevels={k: trConst(v) for k, v in nwStyles.T_LABEL.items()},
         )
 
         # Colours
@@ -270,9 +315,13 @@ class OutlineModel(QAbstractTableModel):
         """Return the number of columns."""
         return 0 if parent.isValid() else len(self._headers)
 
-    def data(self, index: QModelIndex, role: Qt.ItemDataRole) -> None:
-        """Return display data for a node."""
-        return
+    def data(self, index: QModelIndex, role: Qt.ItemDataRole) -> str | None:
+        """Return accessible text for a node, as the delegate paints the rest."""
+        if role == QtAccessibleTextRole and (node := self.node(index)):
+            if index.column() == self.C_TITLE:
+                return node.accessibleTitle()
+            return node.accessibleEntries(index.column() - self.C_COLUMNS)
+        return None
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: Qt.ItemDataRole) -> str | None:
         """Return the header labels for the outline columns."""
@@ -314,11 +363,17 @@ class OutlineModel(QAbstractTableModel):
         target: int = 0,
         useChars: bool = False,
         columns: list[tuple[str, tuple[str, ...]]] | None = None,
+        showStatus: bool = False,
+        inactiveParts: bool = False,
+        subCounts: bool = False,
     ) -> None:
         """Rebuild the outline for the given heading levels and columns.
         If count per page is set, the page and progress of each heading
         is added, with partitions and chapters starting on a new page.
+        Inactive partitions are not counted. Sub counts add the counts
+        of the following lower level headings to each heading.
         """
+        tree = SHARED.project.tree
         self.beginResetModel()
         columns = columns or []
         keys = [k for _, k in columns]
@@ -329,22 +384,38 @@ class OutlineModel(QAbstractTableModel):
         )
         nodes: list[OutlineNode] = []
         progress: list[tuple[OutlineNode, int, int]] = []
+        scopes: list[tuple[int, OutlineNode | None]] = []
         count = 0
         pages = 0
         start = 0
-        for tHandle, sTitle, hItem in index.iterNovelStructure(rHandle=rootHandle):
+        for tHandle, sTitle, hItem in index.iterNovelStructure(rHandle=rootHandle, activeOnly=not inactiveParts):
             level = nwStyles.H_LEVEL.get(hItem.level, 0)
-            if countPerPage > 0 and level <= 2:
+            item = tree[tHandle]
+            active = bool(item and item.isActive)
+            if not (active or level == 1):
+                continue
+            if active and countPerPage > 0 and level <= 2:
                 span = math.ceil((count - start) / countPerPage)
                 pages += span + span % 2 if clearDouble else span
                 start = count
+            node = None
             if level in levels and not (level == 1 and hItem.modified):
                 style = self._styles.get(level, BLANK_STYLE)
                 node = OutlineNode(tHandle, sTitle, hItem, labels, style, keys)
                 nodes.append(node)
-                if countPerPage > 0:
+                if showStatus and item:
+                    node.setStatus(*item.getImportStatus())
+                if active and countPerPage > 0:
                     progress.append((node, pages + 1 + (count - start) // countPerPage, count))
-            count += hItem.charCount if useChars else hItem.wordCount
+            if active and subCounts:
+                while scopes and scopes[-1][0] >= level:
+                    scopes.pop()
+                for _, parent in scopes:
+                    if parent:
+                        parent.addCounts(hItem.charCount, hItem.wordCount)
+                scopes.append((level, node))
+            if active:
+                count += hItem.charCount if useChars else hItem.wordCount
 
         total = max(count, target)
         for node, page, before in progress:

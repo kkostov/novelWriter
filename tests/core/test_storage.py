@@ -392,10 +392,24 @@ def testProjectStorage_ZipIt(
     mockRnd.reset()
     buildTestProject(project, fncPath)
 
-    # Fail to create archive
+    # Fail to list content
+    with monkeypatch.context() as mp:
+        mp.setattr("pathlib.Path.iterdir", causeOSError)
+        assert storage.zipIt(zipFile, 1000.0) is False
+        assert not zipFile.exists()
+
+    # Fail to create archive, and fail to clean up
+    with monkeypatch.context() as mp:
+        mp.setattr("novelwriter.core.storage.ZipFile.write", causeOSError)
+        mp.setattr("pathlib.Path.unlink", causeOSError)
+        assert storage.zipIt(zipFile, 1000.0) is False
+        assert zipFile.exists()
+
+    # Fail to create archive, and clean up
     with monkeypatch.context() as mp:
         mp.setattr("novelwriter.core.storage.ZipFile.write", causeOSError)
         assert storage.zipIt(zipFile, 1000.0) is False
+        assert not zipFile.exists()
 
     # Add a stray file that should not be included
     strayFile = fncPath / "content" / "not-a-handle.txt"

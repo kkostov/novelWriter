@@ -1,5 +1,5 @@
 [Meta]
-timeStamp = "2026-08-08 17:58:45"
+timeStamp = "2026-10-17 16:26:32"
 
 [Main]
 font = "Sans Serif,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1,,0,0"
@@ -10,6 +10,7 @@ icons = "material_rounded_normal"
 iconColTree = "theme"
 iconColDocs = false
 localisation = "en_GB"
+forceRTL = false
 hideVScroll = false
 hideHScroll = false
 lastNotes = "0x0"
@@ -37,6 +38,7 @@ backupOnClose = true
 backupInterval = "session"
 askBeforeBackup = true
 askBeforeExit = true
+forceUnixLineEndings = false
 lastAuthor = ""
 
 [Editor]
@@ -87,6 +89,7 @@ stopWhenIdle = true
 userIdleTime = 300
 
 [State]
+novelViewSubCounts = true
 showDetailsPanel = true
 showViewerPanel = true
 showEditToolBar = false
@@ -105,3 +108,4 @@ searchProjAuto = false
 searchProjCase = false
 searchProjWord = false
 searchProjRegEx = false
+

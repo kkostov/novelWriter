@@ -72,6 +72,7 @@ from novelwriter.common import (
     qtLambda,
     qtWeakLambda,
     stripUnsafe,
+    textDirection,
     transferCase,
 )
 from novelwriter.constants import nwConst, nwKeyWords, nwShortcode, nwStyles, nwUnicode
@@ -848,14 +849,21 @@ class GuiDocEditor(QTextEdit):
         fY = wH - fH - tB - sH
         self.docHeader.setGeometry(tB, tB, tW, tH)
         self.docFooter.setGeometry(tB, fY, tW, fH)
-        self.docToolBar.move(0, tH)
+        if CONFIG.rtlMode:
+            dW = self.docToolBar.sizeHint().width()
+            self.docToolBar.move(wW - dW, tH)
+        else:
+            self.docToolBar.move(0, tH)
 
         rH = 0
         if self.docSearch.isVisible():
             rH = self.docSearch.height()
             rW = self.docSearch.width()
-            rL = wW - sW - rW - 2 * tB
-            self.docSearch.move(rL, 2 * tB)
+            if CONFIG.rtlMode:
+                self.docSearch.move(2, 2 * tB)
+            else:
+                rL = wW - sW - rW - 2 * tB
+                self.docSearch.move(rL, 2 * tB)
 
         uM = max(self._vpMargin, tH, rH)
         lM = max(self._vpMargin, fH)
@@ -1084,19 +1092,19 @@ class GuiDocEditor(QTextEdit):
         elif action in BLOCK_TEXT_ONLY and not (noFormat and len(self._selectedBlocks(cursor)) < 2):
             self._iterFormatBlocks(action)
         elif action == nwDocAction.SC_ITALIC and not noFormat:
-            self._wrapSelection(nwShortcode.ITALIC_O, nwShortcode.ITALIC_C)
+            self._wrapSelection(nwShortcode.ITALIC_O, nwShortcode.ITALIC_C, rtlMark=True)
         elif action == nwDocAction.SC_BOLD and not noFormat:
-            self._wrapSelection(nwShortcode.BOLD_O, nwShortcode.BOLD_C)
+            self._wrapSelection(nwShortcode.BOLD_O, nwShortcode.BOLD_C, rtlMark=True)
         elif action == nwDocAction.SC_STRIKE and not noFormat:
-            self._wrapSelection(nwShortcode.STRIKE_O, nwShortcode.STRIKE_C)
+            self._wrapSelection(nwShortcode.STRIKE_O, nwShortcode.STRIKE_C, rtlMark=True)
         elif action == nwDocAction.SC_ULINE and not noFormat:
-            self._wrapSelection(nwShortcode.ULINE_O, nwShortcode.ULINE_C)
+            self._wrapSelection(nwShortcode.ULINE_O, nwShortcode.ULINE_C, rtlMark=True)
         elif action == nwDocAction.SC_MARK and not noFormat:
-            self._wrapSelection(nwShortcode.MARK_O, nwShortcode.MARK_C)
+            self._wrapSelection(nwShortcode.MARK_O, nwShortcode.MARK_C, rtlMark=True)
         elif action == nwDocAction.SC_SUP and not noFormat:
-            self._wrapSelection(nwShortcode.SUP_O, nwShortcode.SUP_C)
+            self._wrapSelection(nwShortcode.SUP_O, nwShortcode.SUP_C, rtlMark=True)
         elif action == nwDocAction.SC_SUB and not noFormat:
-            self._wrapSelection(nwShortcode.SUB_O, nwShortcode.SUB_C)
+            self._wrapSelection(nwShortcode.SUB_O, nwShortcode.SUB_C, rtlMark=True)
         elif action == nwDocAction.MOVE_TEXT:
             self._moveTextToNewDocument()
         elif action == nwDocAction.ZOOM_IN:
@@ -1508,6 +1516,12 @@ class GuiDocEditor(QTextEdit):
         if updated or deleted:
             self._qDocument.syntaxHighlighter.rehighlightByType(BLOCK_META)
             self._hoverCard.pruneCache(updated + deleted)
+
+    @pyqtSlot()
+    def indexHasAppeared(self) -> None:
+        """Rehighlight tags after the index has been loaded or rebuilt."""
+        self._qDocument.syntaxHighlighter.rehighlightByType(BLOCK_META)
+        self._hoverCard.clearCache()
 
     @pyqtSlot(str, str)
     def processSpellCheckChange(self, language: str, provider: str) -> None:
@@ -2198,6 +2212,7 @@ class GuiDocEditor(QTextEdit):
             cursor = QTextCursor(self._qDocument)
             cursor.setPosition(start)
             cursor.setPosition(end, QtKeepAnchor)
+            cursor.setKeepPositionOnInsert(True)  # Don't extend on typing after (#3105)
             selection = QTextEdit.ExtraSelection()
             selection.format = self._searchFormat
             selection.cursor = cursor
@@ -2283,11 +2298,14 @@ class GuiDocEditor(QTextEdit):
         after: str | None = None,
         pos: int | None = None,
         select: _SelectAction = _SelectAction.NO_DECISION,
+        rtlMark: bool = False,
     ) -> None:
         """Wrap the selected text in whatever is in tBefore and tAfter.
         If there is no selection, the autoSelect setting decides the
         action. AutoSelect will select the word under the cursor before
-        wrapping it. If this feature is disabled, nothing is done.
+        wrapping it. If this feature is disabled, nothing is done. If
+        rtlMark is set, an RTL mark is added in RTL projects when the
+        wrapping would otherwise set the paragraph direction.
         """
         if after is None:
             after = before
@@ -2311,6 +2329,12 @@ class GuiDocEditor(QTextEdit):
         blockE = self._qDocument.findBlock(posE)
         if blockS != blockE:
             posE = blockS.position() + blockS.length() - 1
+
+        if rtlMark and SHARED.project.data.isRTL:
+            # Qt picks the paragraph direction from the first strong character
+            prefix = blockS.text()[: posS - blockS.position()]
+            if not textDirection(prefix):
+                before = nwUnicode.U_RLM + before
 
         cursor.clearSelection()
         cursor.beginEditBlock()

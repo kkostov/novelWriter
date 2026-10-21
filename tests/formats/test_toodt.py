@@ -141,7 +141,7 @@ def testToOdt_TextFormatting(mockGUI: MockGuiMain):
         "Footnote",
     ]
 
-    key = "3cf442c88e0f5e263fdf225fa4763d6e5d7a1d78e611c24f5e9befef1b7646c9"
+    key = "12fb8f092455dd209106599a0eaaa75e8956d1714a5796f0bc7e0eadb0402c3f"
     assert key in odt._autoPara
     assert isinstance(odt._autoPara[key], ODTParagraphStyle)
     assert odt._autoPara[key].name == "P1"
@@ -251,7 +251,7 @@ def testToOdt_Fields(mockGUI: MockGuiMain):
     odt.countStats()
     assert xmlToText(odt._xBody) == (
         "<office:body><office:text>"
-        '<text:p text:style-name="Text_20_body">'
+        '<text:p text:style-name="P1">'
         'Word Count: <text:user-field-get style:data-style-name="N0" '
         'text:name="ManuscriptAllWords">0</text:user-field-get><text:line-break />'
         'Character Count: <text:user-field-get style:data-style-name="N0" '
@@ -313,7 +313,7 @@ def testToOdt_ConvertNovelHeadings(mockGUI: MockGuiMain):
     odt.doConvert()
     odt.closeDocument()
     assert odt.errData == []
-    assert xmlToText(odt._xText) == ('<office:text><text:p text:style-name="Title">Title</text:p></office:text>')
+    assert xmlToText(odt._xText) == ('<office:text><text:p text:style-name="P1">Title</text:p></office:text>')
 
     # Partition
     odt._text = "# Title\n"
@@ -324,7 +324,7 @@ def testToOdt_ConvertNovelHeadings(mockGUI: MockGuiMain):
     odt.closeDocument()
     assert odt.errData == []
     assert xmlToText(odt._xText) == (
-        '<office:text><text:p text:style-name="P1">Part<text:line-break />Title</text:p></office:text>'
+        '<office:text><text:p text:style-name="P2">Part<text:line-break />Title</text:p></office:text>'
     )
 
     # Chapter
@@ -337,7 +337,7 @@ def testToOdt_ConvertNovelHeadings(mockGUI: MockGuiMain):
     assert odt.errData == []
     assert xmlToText(odt._xText) == (
         "<office:text>"
-        '<text:h text:style-name="P2" text:outline-level="1">Chapter 1'
+        '<text:h text:style-name="P3" text:outline-level="1">Chapter 1'
         "<text:line-break />Title</text:h>"
         "</office:text>"
     )
@@ -350,7 +350,7 @@ def testToOdt_ConvertNovelHeadings(mockGUI: MockGuiMain):
     odt.closeDocument()
     assert odt.errData == []
     assert xmlToText(odt._xText) == (
-        '<office:text><text:h text:style-name="P2" text:outline-level="1">Prologue</text:h></office:text>'
+        '<office:text><text:h text:style-name="P3" text:outline-level="1">Prologue</text:h></office:text>'
     )
 
     # Scene
@@ -410,7 +410,7 @@ def testToOdt_ConvertNotesHeadings(mockGUI: MockGuiMain):
     odt.closeDocument()
     assert odt.errData == []
     assert xmlToText(odt._xText) == (
-        '<office:text><text:h text:style-name="Heading_20_1" text:outline-level="1">Title</text:h></office:text>'
+        '<office:text><text:h text:style-name="P1" text:outline-level="1">Title</text:h></office:text>'
     )
 
     # Heading 2
@@ -469,7 +469,7 @@ def testToOdt_ConvertParagraphs(mockGUI: MockGuiMain):
     assert odt.errData == []
     assert xmlToText(odt._xText) == (
         "<office:text>"
-        '<text:p text:style-name="Text_20_body">Some '
+        '<text:p text:style-name="P1">Some '
         '<text:span text:style-name="T1">nested </text:span>'
         '<text:span text:style-name="T2">bold</text:span>'
         '<text:span text:style-name="T1"> and </text:span>'
@@ -685,25 +685,25 @@ def testToOdt_ConvertParagraphs(mockGUI: MockGuiMain):
     assert xmlToText(odt._xText) == (
         "<office:text>"
         '<text:h text:style-name="Heading_20_2" text:outline-level="2">Scene</text:h>'
-        '<text:p text:style-name="P1"><text:span text:style-name="T10">'
+        '<text:p text:style-name="P2"><text:span text:style-name="T10">'
         'Point of View:</text:span> <text:span text:style-name="T11">Jane</text:span></text:p>'
-        '<text:p text:style-name="P1"><text:span text:style-name="T10">'
+        '<text:p text:style-name="P2"><text:span text:style-name="T10">'
         'Characters:</text:span> <text:span text:style-name="T11">John</text:span></text:p>'
         '<text:p text:style-name="Text_20_Meta"><text:span text:style-name="T10">'
         'Plot:</text:span> <text:span text:style-name="T11">Main</text:span></text:p>'
-        '<text:p text:style-name="P2">Right align</text:p>'
+        '<text:p text:style-name="P3">Right align</text:p>'
         '<text:p text:style-name="Text_20_body">Left Align</text:p>'
-        '<text:p text:style-name="P3">Centered</text:p>'
-        '<text:p text:style-name="P4">Left indent</text:p>'
-        '<text:p text:style-name="P5">Right indent</text:p>'
+        '<text:p text:style-name="P4">Centered</text:p>'
+        '<text:p text:style-name="P5">Left indent</text:p>'
+        '<text:p text:style-name="P6">Right indent</text:p>'
         "</office:text>"
     )
-    assert getStyle("P1")._pAttr["margin-top"] == ["fo", "0.000cm"]  # type: ignore
-    assert getStyle("P1")._pAttr["margin-bottom"] == ["fo", "0.000cm"]  # type: ignore
-    assert getStyle("P2")._pAttr["text-align"] == ["fo", "right"]  # type: ignore
-    assert getStyle("P3")._pAttr["text-align"] == ["fo", "center"]  # type: ignore
-    assert getStyle("P4")._pAttr["margin-left"] == ["fo", "1.693cm"]  # type: ignore
-    assert getStyle("P5")._pAttr["margin-right"] == ["fo", "1.693cm"]  # type: ignore
+    assert getStyle("P2")._pAttr["margin-top"] == ["fo", "0.000cm"]  # type: ignore
+    assert getStyle("P2")._pAttr["margin-bottom"] == ["fo", "0.000cm"]  # type: ignore
+    assert getStyle("P3")._pAttr["text-align"] == ["fo", "right"]  # type: ignore
+    assert getStyle("P4")._pAttr["text-align"] == ["fo", "center"]  # type: ignore
+    assert getStyle("P5")._pAttr["margin-left"] == ["fo", "1.693cm"]  # type: ignore
+    assert getStyle("P6")._pAttr["margin-right"] == ["fo", "1.693cm"]  # type: ignore
 
     # Justified
     odt._text = "### Scene\n\nRegular paragraph\n\nwith\nbreak\n\nLeft Align <<\n\n"
@@ -717,12 +717,12 @@ def testToOdt_ConvertParagraphs(mockGUI: MockGuiMain):
     assert xmlToText(odt._xText) == (
         "<office:text>"
         '<text:h text:style-name="Heading_20_2" text:outline-level="2">Scene</text:h>'
-        '<text:p text:style-name="P6">Regular paragraph</text:p>'
-        '<text:p text:style-name="P6">with<text:line-break />break</text:p>'
+        '<text:p text:style-name="P7">Regular paragraph</text:p>'
+        '<text:p text:style-name="P7">with<text:line-break />break</text:p>'
         '<text:p text:style-name="Text_20_body">Left Align</text:p>'
         "</office:text>"
     )
-    assert getStyle("P6")._pAttr["text-align"] == ["fo", "justify"]  # type: ignore
+    assert getStyle("P7")._pAttr["text-align"] == ["fo", "justify"]  # type: ignore
 
     # Page Breaks
     odt._text = "## Chapter One\n\nText\n\n## Chapter Two\n\nText\n\n"
@@ -733,9 +733,9 @@ def testToOdt_ConvertParagraphs(mockGUI: MockGuiMain):
     assert odt.errData == []
     assert xmlToText(odt._xText) == (
         "<office:text>"
-        '<text:h text:style-name="P7" text:outline-level="1">Chapter One</text:h>'
+        '<text:h text:style-name="P8" text:outline-level="1">Chapter One</text:h>'
         '<text:p text:style-name="Text_20_body">Text</text:p>'
-        '<text:h text:style-name="P7" text:outline-level="1">Chapter Two</text:h>'
+        '<text:h text:style-name="P8" text:outline-level="1">Chapter Two</text:h>'
         '<text:p text:style-name="Text_20_body">Text</text:p>'
         "</office:text>"
     )
@@ -750,27 +750,27 @@ def testToOdt_ConvertParagraphs(mockGUI: MockGuiMain):
     assert xmlToText(odt._xText) == (
         "<office:text>"
         '<text:list text:style-name="List_20_Bullet">'
-        '<text:list-item><text:p text:style-name="P8">One</text:p></text:list-item>'
-        '<text:list-item><text:p text:style-name="P8">Two<text:line-break />more</text:p></text:list-item>'
-        '<text:list-item><text:p text:style-name="P9">Three</text:p></text:list-item>'
+        '<text:list-item><text:p text:style-name="P9">One</text:p></text:list-item>'
+        '<text:list-item><text:p text:style-name="P9">Two<text:line-break />more</text:p></text:list-item>'
+        '<text:list-item><text:p text:style-name="P10">Three</text:p></text:list-item>'
         "</text:list>"
         '<text:list text:style-name="List_20_Bullet">'
         '<text:list-item><text:p text:style-name="List">Four</text:p></text:list-item>'
         "</text:list>"
         '<text:p text:style-name="Text_20_body">Text</text:p>'
         '<text:list text:style-name="Numbering_20_123">'
-        '<text:list-item><text:p text:style-name="P8">Five</text:p></text:list-item>'
-        '<text:list-item><text:p text:style-name="P9">Six</text:p></text:list-item>'
+        '<text:list-item><text:p text:style-name="P9">Five</text:p></text:list-item>'
+        '<text:list-item><text:p text:style-name="P10">Six</text:p></text:list-item>'
         "</text:list>"
         '<text:list text:style-name="List_20_Bullet">'
         '<text:list-item><text:p text:style-name="List">Seven</text:p></text:list-item>'
         "</text:list>"
         "</office:text>"
     )
-    assert getStyle("P8")._pAttr["margin-top"] == ["fo", "0.000cm"]  # type: ignore
-    assert getStyle("P8")._pAttr["margin-bottom"] == ["fo", "0.000cm"]  # type: ignore
     assert getStyle("P9")._pAttr["margin-top"] == ["fo", "0.000cm"]  # type: ignore
-    assert getStyle("P9")._pAttr["margin-bottom"] == ["fo", odt._emToCm(odt._marginText[1])]  # type: ignore
+    assert getStyle("P9")._pAttr["margin-bottom"] == ["fo", "0.000cm"]  # type: ignore
+    assert getStyle("P10")._pAttr["margin-top"] == ["fo", "0.000cm"]  # type: ignore
+    assert getStyle("P10")._pAttr["margin-bottom"] == ["fo", odt._emToCm(odt._marginText[1])]  # type: ignore
 
     # Footnotes
     odt._text = (
@@ -826,6 +826,49 @@ def testToOdt_ConvertParagraphs(mockGUI: MockGuiMain):
         "</office:text>"
     )
 
+    # Right-to-Left
+    # =============
+    # LTR blocks get their own writing mode, and the rest inherit RTL
+
+    odt = ToOdt(project, isFlat=True)
+    odt.setLanguage(None, True)
+    odt.setPageLayout(148, 210, 20, 18, 17, 15, 11, False)
+    odt._text = "English text\n\nمتن\n\n1234\n\n"
+    odt.tokenizeText()
+    odt.initDocument()
+    odt.doConvert()
+    odt.closeDocument()
+    assert xmlToText(odt._xText) == (
+        "<office:text>"
+        '<text:p text:style-name="P1">English text</text:p>'
+        '<text:p text:style-name="Text_20_body">متن</text:p>'
+        '<text:p text:style-name="Text_20_body">1234</text:p>'
+        "</office:text>"
+    )
+    assert getStyle("P1")._pAttr["writing-mode"] == ["style", "lr-tb"]  # type: ignore
+    assert odt._mainPara["Text_20_body"]._pAttr["text-align"] == ["fo", "start"]
+
+    # The page sets the document direction, the gutter is on the right,
+    # and the header is mirrored
+    pageLayout = xmlToText(odt._xAuto)
+    assert 'style:writing-mode="rl-tb"' in pageLayout
+    assert 'fo:margin-left="1.700cm" fo:margin-right="2.600cm"' in pageLayout
+    assert 'loext:rtl-gutter="true"' in pageLayout
+    assert odt._mainPara["Header"]._pAttr["text-align"] == ["fo", "left"]
+
+    # Footnotes follow the same rule
+    odt = ToOdt(project, isFlat=True)
+    odt.setLanguage(None, True)
+    odt._text = "متن[footnote:a][footnote:b]\n\n%footnote.a: English note.\n\n%footnote.b: متن\n\n"
+    odt.tokenizeText()
+    odt.initDocument()
+    odt.doConvert()
+    odt.closeDocument()
+    xText = xmlToText(odt._xText)
+    assert '<text:p text:style-name="P2">English note.</text:p>' in xText
+    assert '<text:p text:style-name="Footnote">متن</text:p>' in xText
+    assert getStyle("P2")._pAttr["writing-mode"] == ["style", "lr-tb"]  # type: ignore
+
 
 @pytest.mark.core
 def testToOdt_ConvertDirect(mockGUI: MockGuiMain):
@@ -847,7 +890,7 @@ def testToOdt_ConvertDirect(mockGUI: MockGuiMain):
     doc.closeDocument()
     assert (
         '<style:style style:name="P1" style:family="paragraph" '
-        'style:parent-style-name="Text_20_body">'
+        'style:parent-style-name="Text_20_body" style:master-page-name="First_20_Page">'
         '<style:paragraph-properties fo:text-align="justify" />'
         "</style:style>"
     ) in xmlToText(doc._xAuto)
@@ -865,13 +908,126 @@ def testToOdt_ConvertDirect(mockGUI: MockGuiMain):
     doc.closeDocument()
     assert (
         '<style:style style:name="P1" style:family="paragraph" '
-        'style:parent-style-name="Text_20_body">'
+        'style:parent-style-name="Text_20_body" style:master-page-name="First_20_Page">'
         '<style:paragraph-properties fo:break-after="page" />'
         "</style:style>"
     ) in xmlToText(doc._xAuto)
     assert xmlToText(doc._xText) == (
         '<office:text><text:p text:style-name="P1">This is a paragraph</text:p></office:text>'
     )
+
+    # Any Page Break
+    # The right page style is only added when used
+    doc = ToOdt(project, isFlat=True)
+    doc._blocks = [
+        (BlockTyp.TEXT, "", "First page", [], BlockFmt.NONE),
+        (BlockTyp.TEXT, "", "Page break", [], BlockFmt.PBB),
+    ]
+    doc.initDocument()
+    doc.doConvert()
+    doc.closeDocument()
+    assert 'style:name="PM2"' not in xmlToText(doc._xAuto)
+    assert "Right_20_Page" not in xmlToText(doc._xMast)
+
+    # Odd Page Break
+    # An odd page break overrides any page break
+    doc = ToOdt(project, isFlat=True)
+    doc._blocks = [
+        (BlockTyp.TEXT, "", "First page", [], BlockFmt.NONE),
+        (BlockTyp.TEXT, "", "Page break", [], BlockFmt.PBB),
+        (BlockTyp.HEAD1, "", "Heading break", [], BlockFmt.HBB),
+        (BlockTyp.HEAD1, "", "Both breaks", [], BlockFmt.PBB | BlockFmt.HBB),
+    ]
+    doc.initDocument()
+    doc.doConvert()
+    doc.closeDocument()
+    xAuto = xmlToText(doc._xAuto)
+    assert (
+        '<style:style style:name="P2" style:family="paragraph" '
+        'style:parent-style-name="Text_20_body">'
+        '<style:paragraph-properties fo:break-before="page" />'
+        "</style:style>"
+    ) in xAuto
+    assert (
+        '<style:style style:name="P3" style:family="paragraph" '
+        'style:parent-style-name="Heading_20_1" style:master-page-name="Right_20_Page" />'
+    ) in xAuto
+    assert '<style:style style:name="P4"' not in xAuto
+    assert '<style:page-layout style:name="PM2" style:page-usage="right">' in xAuto
+    assert (
+        '<style:master-page style:name="Right_20_Page" style:display-name="Right Page" '
+        'style:page-layout-name="PM2" style:next-style-name="Standard" />'
+    ) in xmlToText(doc._xMast)
+    xText = xmlToText(doc._xText)
+    assert '<text:p text:style-name="P2">Page break</text:p>' in xText
+    assert 'text:style-name="P3" text:outline-level="1">Heading break</text:h>' in xText
+    assert 'text:style-name="P3" text:outline-level="1">Both breaks</text:h>' in xText
+
+    # First Page
+    # The first page has its own page style with an empty header
+    doc = ToOdt(project, isFlat=True)
+    doc.setHeaderFormat("My Novel", "", 0)
+    doc._blocks = [
+        (BlockTyp.TEXT, "", "First page", [], BlockFmt.NONE),
+    ]
+    doc.initDocument()
+    doc.doConvert()
+    doc.closeDocument()
+    assert xmlToText(doc._xMast) == (
+        "<office:master-styles>"
+        '<style:master-page style:name="Standard" style:page-layout-name="PM1">'
+        '<style:header><text:p text:style-name="Header">My Novel</text:p></style:header>'
+        "</style:master-page>"
+        '<style:master-page style:name="First_20_Page" style:display-name="First Page" '
+        'style:page-layout-name="PM1" style:next-style-name="Standard">'
+        '<style:header><text:p text:style-name="Header" /></style:header>'
+        "</style:master-page>"
+        "</office:master-styles>"
+    )
+
+    # Without a page header, the first page has no header either
+    doc = ToOdt(project, isFlat=True)
+    doc.initDocument()
+    assert xmlToText(doc._xMast) == (
+        "<office:master-styles>"
+        '<style:master-page style:name="Standard" style:page-layout-name="PM1" />'
+        '<style:master-page style:name="First_20_Page" style:display-name="First Page" '
+        'style:page-layout-name="PM1" style:next-style-name="Standard" />'
+        "</office:master-styles>"
+    )
+
+    # The even page header is ignored for single pages
+    doc = ToOdt(project, isFlat=True)
+    doc.setHeaderFormat("", "Even", 0)
+    doc.initDocument()
+    assert "Header_20_Left" not in xmlToText(doc._xStyl)
+    assert "<style:header" not in xmlToText(doc._xMast)
+
+    # Double pages use the even page header on left pages
+    doc = ToOdt(project, isFlat=True)
+    doc.setPageLayout(148, 210, 20, 18, 17, 15, 11, True)
+    doc.setHeaderFormat("", "Even", 0)
+    doc.initDocument()
+    assert doc._mainPara["Header_20_Left"]._pAttr["text-align"] == ["fo", "left"]
+    assert xmlToText(doc._xMast) == (
+        "<office:master-styles>"
+        '<style:master-page style:name="Standard" style:page-layout-name="PM1">'
+        '<style:header><text:p text:style-name="Header" /></style:header>'
+        '<style:header-left><text:p text:style-name="Header_20_Left">Even</text:p></style:header-left>'
+        "</style:master-page>"
+        '<style:master-page style:name="First_20_Page" style:display-name="First Page" '
+        'style:page-layout-name="PM1" style:next-style-name="Standard">'
+        '<style:header><text:p text:style-name="Header" /></style:header>'
+        "</style:master-page>"
+        "</office:master-styles>"
+    )
+
+    # The even page header is mirrored for RTL
+    doc = ToOdt(project, isFlat=True)
+    doc.setLanguage(None, True)
+    doc.setPageLayout(148, 210, 20, 18, 17, 15, 11, True)
+    doc.initDocument()
+    assert doc._mainPara["Header_20_Left"]._pAttr["text-align"] == ["fo", "right"]
 
 
 @pytest.mark.core
@@ -885,18 +1041,19 @@ def testToOdt_SaveFlat(mockGUI: MockGuiMain, fncPath: Path, tstPaths: TstPaths, 
 
     odt = ToOdt(project, isFlat=True)
     odt._isNovel = True
-    odt.setHeaderFormat(nwHeadFmt.DOC_AUTO, 1)
-    assert odt._headerFormat == nwHeadFmt.DOC_AUTO
+    odt.setHeaderFormat(nwHeadFmt.DOC_AUTO_ODD, "", 1)
+    assert odt._headerFormat == nwHeadFmt.DOC_AUTO_ODD
 
     odt.setPageLayout(148, 210, 20, 18, 17, 15, 11, False)
-    assert odt._mDocWidth == "14.800cm"
-    assert odt._mDocHeight == "21.000cm"
-    assert odt._mDocTop == "2.000cm"
-    assert odt._mDocBtm == "1.800cm"
-    assert odt._mDocLeft == "2.800cm"
-    assert odt._mDocRight == "1.500cm"
-    assert odt._mDocGutter == "1.100cm"
-    assert odt._mMirrored is False
+    assert odt._mDocWidth == 148.0
+    assert odt._mDocHeight == 210.0
+    assert odt._mDocTop == 20.0
+    assert odt._mDocBtm == 18.0
+    assert odt._mDocLeft == 17.0
+    assert odt._mDocRight == 15.0
+    assert odt._mDocGutter == 11.0
+    assert odt._mHorLine == 26.25
+    assert odt._dblPages is False
 
     odt._text = (
         "#! My Novel\n\n"
@@ -937,20 +1094,24 @@ def testToOdt_SaveFlatWithEmptyLines(mockGUI: MockGuiMain, fncPath: Path, tstPat
 
     odt = ToOdt(project, isFlat=True)
     odt._isNovel = True
-    odt.setHeaderFormat(nwHeadFmt.DOC_AUTO, 1)
+    odt.setHeaderFormat(nwHeadFmt.DOC_AUTO_ODD, nwHeadFmt.DOC_AUTO_EVEN, 1)
     odt.setLineForMargin(True)
     odt.setJustify(True, False)
-    assert odt._headerFormat == nwHeadFmt.DOC_AUTO
+    assert odt._headerFormat == nwHeadFmt.DOC_AUTO_ODD
+    assert odt._headerFormatEven == nwHeadFmt.DOC_AUTO_EVEN
 
     odt.setPageLayout(148, 210, 20, 18, 17, 15, 11, True)
-    assert odt._mDocWidth == "14.800cm"
-    assert odt._mDocHeight == "21.000cm"
-    assert odt._mDocTop == "2.000cm"
-    assert odt._mDocBtm == "1.800cm"
-    assert odt._mDocLeft == "2.800cm"
-    assert odt._mDocRight == "1.500cm"
-    assert odt._mDocGutter == "1.100cm"
-    assert odt._mMirrored is True
+    assert odt._mDocWidth == 148.0
+    assert odt._mDocHeight == 210.0
+    assert odt._mDocTop == 20.0
+    assert odt._mDocBtm == 18.0
+    assert odt._mDocLeft == 17.0
+    assert odt._mDocRight == 15.0
+    assert odt._mDocGutter == 11.0
+    assert odt._mHorLine == 26.25
+    assert odt._dblPages is True
+
+    odt.setChapterStyle(False, 2)
 
     odt._text = (
         "#! My Novel\n\n"
@@ -993,7 +1154,7 @@ def testToOdt_SaveFull(mockGUI: MockGuiMain, fncPath: Path, tstPaths: TstPaths, 
     odt._isNovel = True
 
     # Set a format without page number
-    odt.setHeaderFormat(f"{nwHeadFmt.DOC_PROJECT} - {nwHeadFmt.DOC_AUTHOR}", 0)
+    odt.setHeaderFormat(f"{nwHeadFmt.DOC_PROJECT} - {nwHeadFmt.DOC_AUTHOR}", "", 0)
 
     odt._text = (
         "#! My Novel\n\n"
@@ -1111,6 +1272,13 @@ def testToOdt_ODTParagraphStyle():
     parStyle.setClass("stuff")
     assert parStyle._mAttr["class"] == ["style", None]
 
+    # Master Page
+    assert parStyle._mAttr["master-page-name"] == ["style", None]
+    parStyle.setMasterPageName("Right_20_Page")
+    assert parStyle._mAttr["master-page-name"] == ["style", "Right_20_Page"]
+    parStyle.setMasterPageName(None)
+    assert parStyle._mAttr["master-page-name"] == ["style", None]
+
     # Set Paragraph Style
     # ===================
 
@@ -1166,6 +1334,19 @@ def testToOdt_ODTParagraphStyle():
     assert parStyle._pAttr["text-align"] == ["fo", "right"]
     parStyle.setTextAlign("stuff")
     assert parStyle._pAttr["text-align"] == ["fo", None]
+
+    # Writing Mode
+    assert parStyle._pAttr["writing-mode"] == ["style", None]
+    parStyle.setWritingMode("stuff")
+    assert parStyle._pAttr["writing-mode"] == ["style", None]
+    parStyle.setWritingMode("lr-tb")
+    assert parStyle._pAttr["writing-mode"] == ["style", "lr-tb"]
+    parStyle.setWritingMode("rl-tb")
+    assert parStyle._pAttr["writing-mode"] == ["style", "rl-tb"]
+    parStyle.setWritingMode("page")
+    assert parStyle._pAttr["writing-mode"] == ["style", "page"]
+    parStyle.setWritingMode(None)
+    assert parStyle._pAttr["writing-mode"] == ["style", None]
 
     # Break Before
     assert parStyle._pAttr["break-before"] == ["fo", None]

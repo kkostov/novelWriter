@@ -23,10 +23,12 @@ from __future__ import annotations
 
 import pytest
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QLabel
 from pytestqt.qtbot import QtBot
 
 from novelwriter.extensions.configlayout import NScrollableForm
+from novelwriter.types import QtAlignAbsolute, QtAlignLeftMiddle, QtAlignRightMiddle
 
 from tests.helpers import SimpleDialog
 from tests.mocked import MockGuiMain
@@ -76,3 +78,31 @@ def testNScrollableForm_Main(qtbot: QtBot, mockGUI: MockGuiMain):
     # Scroll to a known and an unknown label
     form.scrollToLabel("Row A")
     form.scrollToLabel("Unknown Label")
+
+
+@pytest.mark.gui
+def testNScrollableForm_LabelAlignment(qtbot: QtBot, mockGUI: MockGuiMain):
+    """Test that form labels align with the layout direction, not the
+    direction of the label text.
+    """
+    dialog = SimpleDialog()
+    form = NScrollableForm(dialog)
+    dialog.addWidget(form)
+    qtbot.addWidget(dialog)
+
+    # LTR pins labels to the left edge
+    form.addGroupLabel("Group", identifier=1)
+    form.addRow("Row", QLabel("A", form), helpText="Help", editable="row")
+    ltrAlign = QtAlignAbsolute | QtAlignLeftMiddle
+    assert form._sections[1].alignment() == ltrAlign
+    assert form._editableLabel["row"].alignment() == ltrAlign
+    assert form._editableHelp["row"].alignment() == ltrAlign
+
+    # RTL pins English labels to the right edge
+    form.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    form.addGroupLabel("Group", identifier=2)
+    form.addRow("Row", QLabel("B", form), helpText="Help", editable="rowRTL")
+    rtlAlign = QtAlignAbsolute | QtAlignRightMiddle
+    assert form._sections[2].alignment() == rtlAlign
+    assert form._editableLabel["rowRTL"].alignment() == rtlAlign
+    assert form._editableHelp["rowRTL"].alignment() == rtlAlign

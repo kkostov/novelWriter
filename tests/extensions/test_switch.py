@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import pytest
 
-from PyQt6.QtCore import QEvent, QPointF
+from PyQt6.QtCore import QEvent, QPointF, Qt
 from PyQt6.QtGui import QEnterEvent, QMouseEvent
 from pytestqt.qtbot import QtBot
 
@@ -74,3 +74,30 @@ def testNSwitch_Main(qtbot: QtBot):
     switch.enterEvent(event)
 
     # qtbot.stop()
+
+
+@pytest.mark.gui
+def testNSwitch_Direction(qtbot: QtBot):
+    """Test that the switch knob is mirrored in RTL layouts."""
+    dialog = SimpleDialog()
+    switch = NSwitch(dialog, 40)
+    dialog.addWidget(switch)
+    qtbot.addWidget(dialog)
+    dialog.show()
+    switch.setChecked(True)
+
+    def knobSpan() -> tuple[int, int]:
+        image = switch.grab().toImage()
+        color = switch.palette().highlightedText().color()
+        row = image.height() // 2
+        xs = [x for x in range(image.width()) if image.pixelColor(x, row) == color]
+        return min(xs), max(xs)
+
+    # LTR places the checked knob on the right
+    kL, _ = knobSpan()
+    assert kL >= switch.width() // 2
+
+    # RTL places the checked knob on the left
+    switch.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    _, kR = knobSpan()
+    assert kR <= switch.width() // 2

@@ -34,8 +34,9 @@ from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from novelwriter import CONFIG, SHARED, __date__, __domain__, __version__
-from novelwriter.common import formatLink, formatVersion
+from novelwriter.common import formatLink, formatVersion, qtVisualAlign
 from novelwriter.constants import nwConst
+from novelwriter.types import QtAlignLeftMiddle
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,7 @@ class VersionInfoWidget(QWidget):
         self._lblNotes.linkActivated.connect(self._processLink)
 
         self._lblRelease = QLabel(self._trLatest.format(formatLink("#update", trCheck)), self)
+        self._lblRelease.setAlignment(qtVisualAlign(self, QtAlignLeftMiddle))
         self._lblRelease.linkActivated.connect(self._processLink)
 
         # Assemble

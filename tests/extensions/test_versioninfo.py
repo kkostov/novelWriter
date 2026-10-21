@@ -26,12 +26,14 @@ from urllib.error import HTTPError
 
 import pytest
 
-from PyQt6.QtCore import QObject, QUrl, pyqtBoundSignal, pyqtSignal
+from PyQt6.QtCore import QObject, Qt, QUrl, pyqtBoundSignal, pyqtSignal
+from PyQt6.QtWidgets import QWidget
 from pytestqt.qtbot import QtBot
 
 from novelwriter import SHARED
 from novelwriter.constants import nwConst
 from novelwriter.extensions.versioninfo import VersionInfoWidget, _Retriever
+from novelwriter.types import QtAlignAbsolute, QtAlignLeftMiddle, QtAlignRightMiddle
 
 from tests.helpers import SimpleDialog
 from tests.mocked import MockGuiMain
@@ -166,6 +168,13 @@ def testVersionInfoWidget_Main(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, mo
 
     version._updateReleaseInfo("", "")
     assert version._lblRelease.text() == "Latest Version: Failed"
+
+    # The release label aligns with the layout direction
+    assert version._lblRelease.alignment() == QtAlignAbsolute | QtAlignLeftMiddle
+    rtlParent = QWidget()
+    rtlParent.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    rtlVersion = VersionInfoWidget(rtlParent)
+    assert rtlVersion._lblRelease.alignment() == QtAlignAbsolute | QtAlignRightMiddle
 
     dialog.close()
     # qtbot.stop()

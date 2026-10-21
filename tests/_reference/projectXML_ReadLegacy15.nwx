@@ -6,7 +6,7 @@
   </project>
   <settings>
     <doBackup>no</doBackup>
-    <language>en_GB</language>
+    <language rtl="no">en_GB</language>
     <spellChecking auto="yes">None</spellChecking>
     <projectTarget date="2026-08-20" last="0" mode="words">100000</projectTarget>
     <dailyTarget auto="no" last="0" date="2026-07-20">1000</dailyTarget>

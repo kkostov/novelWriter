@@ -222,6 +222,11 @@ class GuiNovelToolBar(QWidget):
         self.aLastColSize = qtAddAction(self.mLastCol, self.tr("Column Size"))
         self.aLastColSize.triggered.connect(self._selectLastColumnSize)
 
+        self.aSubCounts = qtAddAction(self.mMore, self.tr("Include Sub-Heading Counts"))
+        self.aSubCounts.setCheckable(True)
+        self.aSubCounts.setChecked(CONFIG.novelViewSubCounts)
+        self.aSubCounts.triggered.connect(self._setSubCounts)
+
         self.tbMore = NFlatIconButton(self, iSz, "more_vertical:default")
         self.tbMore.setToolTip(self.tr("More Options"))
         self.tbMore.setMenu(self.mMore)
@@ -336,6 +341,12 @@ class GuiNovelToolBar(QWidget):
         if isOk:
             self.novelView.novelTree.setLastColSize(newSize)
             self.novelView.novelTree.resizeColumns()
+
+    @pyqtSlot(bool)
+    def _setSubCounts(self, state: bool) -> None:
+        """Set whether to include the counts of child headings."""
+        CONFIG.novelViewSubCounts = state
+        self.forceRefreshNovelTree()
 
     ##
     #  Internal Functions

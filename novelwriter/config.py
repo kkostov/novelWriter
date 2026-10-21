@@ -43,6 +43,7 @@ from PyQt6.QtCore import (
     QRect,
     QStandardPaths,
     QSysInfo,
+    Qt,
     QTranslator,
 )
 from PyQt6.QtGui import QFont, QFontDatabase, QFontMetrics
@@ -156,7 +157,9 @@ class Config:
         "fmtSQuoteOpen",
         "focusWidth",
         "fontWinSize",
+        "forceUnixLineEndings",
         "guiFont",
+        "guiForceRTL",
         "guiLocale",
         "hasSpellCheck",
         "hideFocusFooter",
@@ -182,12 +185,14 @@ class Config:
         "narratorBreak",
         "narratorDialog",
         "nativeFont",
+        "novelViewSubCounts",
         "osDarwin",
         "osLinux",
         "osType",
         "osUnknown",
         "osWindows",
         "prefsWinSize",
+        "rtlMode",
         "scaleHeadings",
         "scrollPastEnd",
         "searchAuto",
@@ -299,6 +304,7 @@ class Config:
 
         # General GUI Settings
         self.guiLocale = self._qLocale.name()
+        self.guiForceRTL = False  # User setting to force RTL layout
         self.lightTheme = DEF_GUI_LIGHT  # Light GUI theme
         self.darkTheme = DEF_GUI_DARK  # Dark GUI theme
         self.themeMode = nwTheme.AUTO  # Colour theme mode
@@ -310,6 +316,7 @@ class Config:
         self.useCharCount = False  # Use character count as primary count
         self.countUnit = "words"  # Primary count unit
         self.vimMode = False  # Enable Vim mode
+        self.rtlMode = False  # RTL layout, from the language or the forced setting
 
         # Icons
         self.iconTheme = DEF_ICONS  # Icons theme
@@ -335,6 +342,7 @@ class Config:
         self.backupInterval = "session"  # Backup interval
         self.askBeforeBackup = True  # Flag for asking before running automatic backup
         self.askBeforeExit = True  # Flag for asking before exiting the app
+        self.forceUnixLineEndings = False  # Always use LF line endings, never CRLF
 
         # Text Editor Settings
         self.textFont = QFont()  # Editor font
@@ -398,6 +406,7 @@ class Config:
         self.spellLanguage = "en"
 
         # State
+        self.novelViewSubCounts = True  # Count notes of sub elements in novel view
         self.showDetailsPanel = True  # The panel for the item details is visible
         self.showViewerPanel = True  # The panel for the viewer is visible
         self.showEditToolBar = False  # The document editor toolbar visibility
@@ -495,6 +504,11 @@ class Config:
     def lastAuthor(self) -> str:
         """Return the last author name used."""
         return self._lastAuthor
+
+    @property
+    def lineEnding(self) -> str | None:
+        """Return the project file line ending."""
+        return "\n" if self.forceUnixLineEndings else None
 
     ##
     #  Getters
@@ -773,6 +787,9 @@ class Config:
 
         # Refresh translated values
         self.setPrimaryCount(self.useCharCount)
+        if self.guiForceRTL:
+            nwApp.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.rtlMode = nwApp.layoutDirection() == Qt.LayoutDirection.RightToLeft
 
     def loadConfig(self, splash: NSplashScreen | None = None) -> bool:
         """Load preferences from file and replace default settings."""
@@ -816,6 +833,7 @@ class Config:
         self.iconColTree = parser.getStr(sec, "iconColTree", self.iconColTree)
         self.iconColDocs = parser.getBool(sec, "iconColDocs", self.iconColDocs)
         self.guiLocale = parser.getStr(sec, "localisation", self.guiLocale)
+        self.guiForceRTL = parser.getBool(sec, "forceRTL", self.guiForceRTL)
         self.hideVScroll = parser.getBool(sec, "hideVScroll", self.hideVScroll)
         self.hideHScroll = parser.getBool(sec, "hideHScroll", self.hideHScroll)
         self.lastNotes = parser.getStr(sec, "lastNotes", self.lastNotes)
@@ -845,6 +863,7 @@ class Config:
         self.backupInterval = parser.getStr(sec, "backupInterval", self.backupInterval)
         self.askBeforeBackup = parser.getBool(sec, "askBeforeBackup", self.askBeforeBackup)
         self.askBeforeExit = parser.getBool(sec, "askBeforeExit", self.askBeforeExit)
+        self.forceUnixLineEndings = parser.getBool(sec, "forceUnixLineEndings", self.forceUnixLineEndings)
         self._lastAuthor = simplified(parser.getStr(sec, "lastAuthor", self._lastAuthor))
 
         # Editor
@@ -897,6 +916,7 @@ class Config:
 
         # State
         sec = "State"
+        self.novelViewSubCounts = parser.getBool(sec, "novelViewSubCounts", self.novelViewSubCounts)
         self.showDetailsPanel = parser.getBool(sec, "showDetailsPanel", self.showDetailsPanel)
         self.showViewerPanel = parser.getBool(sec, "showViewerPanel", self.showViewerPanel)
         self.showEditToolBar = parser.getBool(sec, "showEditToolBar", self.showEditToolBar)
@@ -960,6 +980,7 @@ class Config:
             "iconColTree": self.iconColTree,
             "iconColDocs": self.iconColDocs,
             "localisation": self.guiLocale,
+            "forceRTL": self.guiForceRTL,
             "hideVScroll": self.hideVScroll,
             "hideHScroll": self.hideHScroll,
             "lastNotes": self.lastNotes,
@@ -989,6 +1010,7 @@ class Config:
             "backupInterval": self.backupInterval,
             "askBeforeBackup": self.askBeforeBackup,
             "askBeforeExit": self.askBeforeExit,
+            "forceUnixLineEndings": self.forceUnixLineEndings,
             "lastAuthor": self._lastAuthor,
         }
 
@@ -1041,6 +1063,7 @@ class Config:
         }
 
         config["State"] = {
+            "novelViewSubCounts": self.novelViewSubCounts,
             "showDetailsPanel": self.showDetailsPanel,
             "showViewerPanel": self.showViewerPanel,
             "showEditToolBar": self.showEditToolBar,

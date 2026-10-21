@@ -102,6 +102,7 @@ ICONS = [
     "fmt_italic",
     "fmt_link",
     "fmt_list_o",
+    "fmt_list_o_rtl",
     "fmt_list_u",
     "fmt_mark",
     "fmt_size",

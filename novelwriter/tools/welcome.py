@@ -27,7 +27,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import NamedTuple
 
-from PyQt6.QtCore import QAbstractListModel, QModelIndex, QObject, QPoint, QSize, Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QAbstractListModel, QModelIndex, QObject, QPoint, QRect, QSize, Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QAction, QCloseEvent, QKeyEvent, QPainter, QPaintEvent, QPalette, QPen, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
@@ -40,6 +40,7 @@ from PyQt6.QtWidgets import (
     QMenu,
     QScrollArea,
     QStackedWidget,
+    QStyle,
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QVBoxLayout,
@@ -453,12 +454,14 @@ class _ProjectListItem(QStyledItemDelegate):
                 painter.fillRect(rect, QApplication.palette().text())
                 painter.setOpacity(1.0)
 
-            painter.drawPixmap(2, rect.top() + 6, self._icon)
+            direction = option.direction
+            iconRect = QStyle.visualRect(direction, rect, QRect(QPoint(2, rect.top() + 6), self._icon.size()))
+            painter.drawPixmap(iconRect.topLeft(), self._icon)
             painter.setFont(self._tFont)
-            painter.drawText(rect.adjusted(x, 4, 0, 0), tFlag, entry.title)
+            painter.drawText(QStyle.visualRect(direction, rect, rect.adjusted(x, 4, 0, 0)), tFlag, entry.title)
             painter.setFont(self._dFont)
             painter.setPen(self._dPen)
-            painter.drawText(rect.adjusted(x, y, 0, 0), tFlag, entry.details)
+            painter.drawText(QStyle.visualRect(direction, rect, rect.adjusted(x, y, 0, 0)), tFlag, entry.details)
             painter.restore()
 
     def sizeHint(self, opt: QStyleOptionViewItem, index: QModelIndex) -> QSize:

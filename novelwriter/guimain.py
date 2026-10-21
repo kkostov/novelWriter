@@ -228,6 +228,8 @@ class GuiMain(QMainWindow):
         self.projSearch.openDocumentSelectRequest.connect(self.docPanes.openDocumentSelection)
         self.projSearch.selectedItemChanged.connect(self.itemDetails.updateViewBox)
 
+        self.storyView.openDocumentRequest.connect(self.docPanes.openDocumentInMode)
+
         self.docEditor.docTextChanged.connect(self.projSearch.textChanged)
         self.docEditor.editedStatusChanged.connect(self.mainStatus.updateDocumentStatus)
         self.docEditor.itemHandleChanged.connect(self.novelView.setActiveHandle)
@@ -657,7 +659,7 @@ class GuiMain(QMainWindow):
         function to handle all the close process steps.
         """
         if self.closeMain():
-            if self._themeHints is not None:
+            if self._themeHints is not None and self._themeChangedSlot is not None:
                 self._themeHints.colorSchemeChanged.disconnect(self._themeChangedSlot)
             self.docEditor.clearEditor()  # Extra safety to clear widgets
             event.accept()
@@ -750,7 +752,10 @@ class GuiMain(QMainWindow):
             self.docPanes.cycleFocus()
 
         elif paneNo == nwFocus.STORY:
-            self.changeView(nwView.STORY, exitFocus=True)
+            if self.mainStack.currentWidget() is self.storyView:
+                self.storyView.cycleTabs()
+            else:
+                self.changeView(nwView.STORY, exitFocus=True)
 
         else:  # pragma: no cover
             pass
@@ -792,6 +797,7 @@ class GuiMain(QMainWindow):
         """Refresh data dependent on project settings."""
         logger.debug("Applying new project settings")
         SHARED.updateSpellCheckLanguage()
+        self.docViewer.reloadText()
         self.itemDetails.refreshDetails()
         self.mainMenu.setSelectedProjectSpellCheckLanguage()
         self.mainStatus.initProjectSettings()

@@ -70,10 +70,10 @@ SETTINGS_TEMPLATE: dict[str, tuple[type, T_BuildValue]] = {
     "headings.centerPart":     (bool, True),
     "headings.centerChapter":  (bool, False),
     "headings.centerScene":    (bool, False),
-    "headings.breakTitle":     (bool, False),
-    "headings.breakPart":      (bool, True),
-    "headings.breakChapter":   (bool, True),
-    "headings.breakScene":     (bool, False),
+    "headings.breakTitle":     (int, 0),
+    "headings.breakPart":      (int, 1),
+    "headings.breakChapter":   (int, 1),
+    "headings.breakScene":     (int, 0),
 
     "text.includeBodyText":    (bool, True),
     "text.includeSynopsis":    (bool, False),
@@ -95,6 +95,7 @@ SETTINGS_TEMPLATE: dict[str, tuple[type, T_BuildValue]] = {
     "format.colorHeadings":    (bool, True),
     "format.boldHeadings":     (bool, True),
     "format.upperHeadings":    (bool, False),
+    "format.showStatus":       (bool, False),
     "format.firstLineIndent":  (bool, False),
     "format.firstIndentWidth": (float, 1.4),
     "format.indentFirstPar":   (bool, False),
@@ -127,9 +128,10 @@ SETTINGS_TEMPLATE: dict[str, tuple[type, T_BuildValue]] = {
     "format.leftMargin":       (float, 2.0),
     "format.rightMargin":      (float, 2.0),
     "format.gutterMargin":     (float, 0.0),
-    "format.mirrorMargins":    (bool, False),
+    "format.doublePages":      (bool, False),
 
-    "doc.pageHeader":          (str, nwHeadFmt.DOC_AUTO),
+    "doc.pageHeader":          (str, nwHeadFmt.DOC_AUTO_ODD),
+    "doc.pageHeaderEven":      (str, nwHeadFmt.DOC_AUTO_EVEN),
     "doc.pageCountOffset":     (int, 0),
     "doc.metaLanguage":        (str, ""),
 
@@ -174,6 +176,7 @@ SETTINGS_LABELS = {
     "format.colorHeadings":    QT_TRANSLATE_NOOP("Builds", "Add colours to headings"),
     "format.boldHeadings":     QT_TRANSLATE_NOOP("Builds", "Bold headings"),
     "format.upperHeadings":    QT_TRANSLATE_NOOP("Builds", "Uppercase headings"),
+    "format.showStatus":       QT_TRANSLATE_NOOP("Builds", "Show status label under headings"),
 
     "format.grpParIndent":     QT_TRANSLATE_NOOP("Builds", "First Line Indent"),
     "format.firstLineIndent":  QT_TRANSLATE_NOOP("Builds", "Enable indent"),
@@ -197,10 +200,11 @@ SETTINGS_LABELS = {
     "format.pageMarginsLR":    QT_TRANSLATE_NOOP("Builds", "Left and right margins"),
     "format.pageMarginsIO":    QT_TRANSLATE_NOOP("Builds", "Inner and outer margins"),
     "format.gutterMargin":     QT_TRANSLATE_NOOP("Builds", "Gutter margin"),
-    "format.mirrorMargins":    QT_TRANSLATE_NOOP("Builds", "Mirror margins"),
+    "format.doublePages":      QT_TRANSLATE_NOOP("Builds", "Double-sided pages"),
 
     "doc":                     QT_TRANSLATE_NOOP("Builds", "Document Style"),
     "doc.pageHeader":          QT_TRANSLATE_NOOP("Builds", "Page header"),
+    "doc.pageHeaderEven":      QT_TRANSLATE_NOOP("Builds", "Page header for even pages"),
     "doc.pageCountOffset":     QT_TRANSLATE_NOOP("Builds", "Page counter offset"),
     "doc.metaLanguage":        QT_TRANSLATE_NOOP("Builds", "Override document language"),
 
@@ -677,7 +681,7 @@ class BuildCollection:
                 "defaultBuild": self._defaultBuild,
             }
             data.update({k: b.pack() for k, b in self._builds.items()})
-            with open(buildsFile, mode="w+", encoding="utf-8") as outFile:
+            with open(buildsFile, mode="w+", encoding="utf-8", newline=CONFIG.lineEnding) as outFile:
                 outFile.write(jsonEncode({"novelWriter.builds": data}, nmax=4))
         except Exception:
             logger.error("Failed to save builds file")

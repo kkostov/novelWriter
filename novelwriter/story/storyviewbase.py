@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QEvent, pyqtSignal, pyqtSlot
@@ -58,6 +59,8 @@ class GuiStoryViewBase(QWidget):
     The base class for the views on the Story View tabs. Subclasses add
     their content to the outer layout and implement refresh.
     """
+
+    openDocumentRequest = pyqtSignal(str, Enum, str, bool)
 
     def __init__(self, parent: QWidget, settings: StoryViewSettings) -> None:
         super().__init__(parent)

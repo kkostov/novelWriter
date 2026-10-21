@@ -32,7 +32,7 @@ from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QStatusBar, QWidg
 
 from novelwriter import CONFIG, SHARED
 from novelwriter.common import formatPercent, formatTime, languageName
-from novelwriter.constants import nwConst, nwLabels, nwStats, trStats
+from novelwriter.constants import nwConst, nwLabels, nwStats, trConst, trStats
 from novelwriter.extensions.modified import NClickableLabel, NFlatIconButton
 from novelwriter.extensions.progressbars import NColorRangeProgress
 from novelwriter.extensions.statusled import StatusLED
@@ -95,18 +95,22 @@ class GuiMainStatus(QStatusBar):
         self.addPermanentWidget(self.langIcon)
         self.addPermanentWidget(self.langText)
 
-        # The Editor Status
+        # The Editor and Project Status
+        trSaved = trConst(nwLabels.SAVED_NAME[True])
+        trUnsaved = trConst(nwLabels.SAVED_NAME[False])
+
         self.docIcon = StatusLED(iPx, iPx, self)
         self.docText = QLabel(self.tr("Editor"), self)
         self.docIcon.setContentsMargins(0, 0, 0, 0)
+        self.docIcon.setLabels(self.docText.text(), trSaved, trUnsaved)
         self.docText.setContentsMargins(0, 0, 8, 0)
         self.addPermanentWidget(self.docIcon)
         self.addPermanentWidget(self.docText)
 
-        # The Project Status
         self.projIcon = StatusLED(iPx, iPx, self)
         self.projText = QLabel(self.tr("Project"), self)
         self.projIcon.setContentsMargins(0, 0, 0, 0)
+        self.projIcon.setLabels(self.projText.text(), trSaved, trUnsaved)
         self.projText.setContentsMargins(0, 0, 8, 0)
         self.addPermanentWidget(self.projIcon)
         self.addPermanentWidget(self.projText)

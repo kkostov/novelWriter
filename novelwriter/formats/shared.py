@@ -77,6 +77,7 @@ class TextFmt(IntEnum):
     text block.
     """
 
+    NONE = 0  # No format
     B_B = 1  # Begin bold
     B_E = 2  # End bold
     I_B = 3  # Begin italics
@@ -142,16 +143,18 @@ class BlockFmt(Flag):
     JUSTIFY = 0x0008  # Justified
     PBB = 0x0010  # Page break before
     PBA = 0x0020  # Page break after
-    Z_TOP = 0x0040  # Zero top margin
-    Z_BTM = 0x0080  # Zero bottom margin
-    IND_L = 0x0100  # Left indentation
-    IND_R = 0x0200  # Right indentation
-    IND_T = 0x0400  # Text indentation
-    LIST_S = 0x0800  # List start
-    LIST_E = 0x1000  # List end
+    HBB = 0x0040  # Header page break before
+    Z_TOP = 0x0080  # Zero top margin
+    Z_BTM = 0x0100  # Zero bottom margin
+    IND_L = 0x0200  # Left indentation
+    IND_R = 0x0400  # Right indentation
+    IND_T = 0x0800  # Text indentation
+    LIST_S = 0x1000  # List start
+    LIST_E = 0x2000  # List end
 
     # Masks
     ALIGNED = LEFT | RIGHT | CENTRE | JUSTIFY
+    BREAK_B = PBB | HBB
 
 
 # Types

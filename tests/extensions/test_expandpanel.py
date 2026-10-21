@@ -55,6 +55,7 @@ def testNExpandablePanel_Main(qtbot: QtBot, mockGUI: MockGuiMain):
 
     # Set a title
     panel.setTitle("My Panel")
+    assert panel._ep_toggle.accessibleName() == "My Panel"
     assert panel._ep_label.text() == "My Panel"
 
     # Set the content layout

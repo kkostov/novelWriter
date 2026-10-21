@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any, NamedTuple, Self
 
 from PyQt6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication
 
+from novelwriter import CONFIG
 from novelwriter.common import checkUuid, jsonEncode, safeExists
 from novelwriter.constants import nwFiles, nwKeyWords
 from novelwriter.enum import nwComment
@@ -57,6 +58,8 @@ MAX_COLUMN_KEYS = 5
 SETTINGS_TEMPLATE: dict[str, tuple[type, T_ViewValue]] = {
     "outline.syntaxColors":    (bool, False),
     "outline.rowLines":        (int, 3),
+    "outline.subCounts":       (bool, True),
+    "outline.showStatus":      (bool, False),
     "outline.commentIcons":    (bool, False),
     "outline.referenceIcons":  (bool, False),
 
@@ -64,6 +67,7 @@ SETTINGS_TEMPLATE: dict[str, tuple[type, T_ViewValue]] = {
     "outline.showScenes":      (bool, True),
     "outline.showChapters":    (bool, True),
     "outline.showSections":    (bool, False),
+    "outline.inactiveParts":   (bool, False),
 
     "outline.showProgress":    (bool, True),
     "outline.countPerPage":    (int, 350),
@@ -77,6 +81,8 @@ SETTINGS_LABELS = {
     "outline.grpAppearance":   QT_TRANSLATE_NOOP("StoryViews", "Appearance"),
     "outline.syntaxColors":    QT_TRANSLATE_NOOP("StoryViews", "Use syntax colours"),
     "outline.rowLines":        QT_TRANSLATE_NOOP("StoryViews", "Row height"),
+    "outline.subCounts":       QT_TRANSLATE_NOOP("StoryViews", "Include sub-heading counts"),
+    "outline.showStatus":      QT_TRANSLATE_NOOP("StoryViews", "Show document status"),
     "outline.commentIcons":    QT_TRANSLATE_NOOP("StoryViews", "Show icons for comment types"),
     "outline.referenceIcons":  QT_TRANSLATE_NOOP("StoryViews", "Show icons for reference types"),
 
@@ -85,6 +91,7 @@ SETTINGS_LABELS = {
     "outline.showChapters":    QT_TRANSLATE_NOOP("StoryViews", "Show chapters"),
     "outline.showScenes":      QT_TRANSLATE_NOOP("StoryViews", "Show scenes"),
     "outline.showSections":    QT_TRANSLATE_NOOP("StoryViews", "Show sections"),
+    "outline.inactiveParts":   QT_TRANSLATE_NOOP("StoryViews", "Show inactive partitions"),
 
     "outline.grpProgress":     QT_TRANSLATE_NOOP("StoryViews", "Progression"),
     "outline.showProgress":    QT_TRANSLATE_NOOP("StoryViews", "Show story progression"),
@@ -565,7 +572,7 @@ class StoryViewCollection:
             }
             data.update(self._unknown)
             data.update({k: v.pack() for k, v in self._views.items()})
-            with open(viewsFile, mode="w+", encoding="utf-8") as outFile:
+            with open(viewsFile, mode="w+", encoding="utf-8", newline=CONFIG.lineEnding) as outFile:
                 outFile.write(jsonEncode({"novelWriter.storyViews": data}, nmax=4))
         except Exception:
             logger.error("Failed to save story views file")

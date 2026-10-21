@@ -29,7 +29,7 @@ from pathlib import Path
 from time import time
 from typing import TYPE_CHECKING
 
-from novelwriter import SHARED, __hexversion__
+from novelwriter import CONFIG, SHARED, __hexversion__
 from novelwriter.common import (
     checkInt,
     formatTimeStamp,
@@ -297,7 +297,7 @@ class Index:
                 "timestamp": formatTimeStamp(start),
                 "revision": self._indexRevision,
             }
-            with open(indexFile, mode="w+", encoding="utf-8") as outFile:
+            with open(indexFile, mode="w+", encoding="utf-8", newline=CONFIG.lineEnding) as outFile:
                 outFile.write(
                     jsonCombine({
                         "novelWriter.meta": jsonEncode(meta, n=1),
@@ -358,7 +358,7 @@ class Index:
         if tItem.isInactiveClass():
             self._scanInactive(tItem, text)
         else:
-            self._scanActive(tHandle, tItem, text, itemTags)
+            self._scanActive(tHandle, tItem, text, itemTags, blockSignal)
 
         if tItem.itemClass == nwItemClass.NOVEL and not blockSignal and not self.updateNovelModelData(tItem):
             self.refreshNovelModel(tItem.itemRoot)
@@ -375,7 +375,14 @@ class Index:
     #  Internal Indexer Helpers
     ##
 
-    def _scanActive(self, tHandle: str, nwItem: ProjectItem, text: str, tags: dict[str, bool]) -> None:
+    def _scanActive(
+        self,
+        tHandle: str,
+        nwItem: ProjectItem,
+        text: str,
+        tags: dict[str, bool],
+        blockSignal: bool,
+    ) -> None:
         """Scan an active document for meta data."""
         nTitle = 0  # Line Number of the previous title
         cTitle = TT_NONE  # Tag of the current title
@@ -426,9 +433,9 @@ class Index:
             self._indexWordCounts(tHandle, text, cTitle)
 
         # Prune no longer used tags
+        updated = []
+        deleted = []
         for tTag, isActive in tags.items():
-            updated = []
-            deleted = []
             if isActive:
                 logger.debug("Added/updated tag '%s'", tTag)
                 updated.append(tTag)
@@ -436,8 +443,8 @@ class Index:
                 logger.debug("Removed tag '%s'", tTag)
                 del self._tagsIndex[tTag]
                 deleted.append(tTag)
-            if updated or deleted:  # pragma: no branch
-                SHARED.emitIndexChangedTags(self._project, updated, deleted)
+        if not blockSignal and (updated or deleted):
+            SHARED.emitIndexChangedTags(self._project, updated, deleted)
 
     def _scanInactive(self, nwItem: ProjectItem, text: str) -> None:
         """Scan an inactive document for meta data."""
@@ -500,6 +507,7 @@ class Index:
         for handle in self._project.tree.subTree(tHandle):
             if (node := self._itemIndex[handle]) and node.item.isDocumentLayout() and node.item.isActive:
                 model.append(node)
+        model.updateCounts()
 
     def _itemRefHandles(self, tHandle: str) -> set[str]:
         """Get the handles referenced by an indexed item."""
@@ -682,6 +690,14 @@ class Index:
                     tRefs[aHandle] = (sTitle, hItem)
 
         return tRefs
+
+    def getTagUseCounts(self) -> dict[str, int]:
+        """Return the number of headings referencing each tag."""
+        counts: dict[str, int] = {}
+        for _, _, hItem in self._itemIndex.iterAllHeaders():
+            for tag in hItem.references:
+                counts[tag] = counts.get(tag, 0) + 1
+        return counts
 
     def getTagSource(self, tagKey: str) -> tuple[str | None, str]:
         """Return the source location of a given tag."""

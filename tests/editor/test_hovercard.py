@@ -25,8 +25,8 @@ from pathlib import Path
 
 import pytest
 
-from PyQt6.QtCore import QEvent, QPoint, QPointF
-from PyQt6.QtGui import QEnterEvent
+from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
+from PyQt6.QtGui import QEnterEvent, QGuiApplication
 from PyQt6.QtWidgets import QWidget
 from pytestqt.qtbot import QtBot
 
@@ -133,6 +133,22 @@ def testGuiDocHoverCard_Widget(
         card.showAt(QPoint(50, 50), 400, 800)
     assert not card.mask().isEmpty()
     card.repaint()
+
+    # The card extends from the leading side of the anchor, and is kept
+    # horizontally within the screen
+    screen = QGuiApplication.primaryScreen()
+    assert screen is not None
+    area = screen.availableGeometry()
+    assert card.x() == 50
+    card.showAt(QPoint(area.right(), 50), 400, 800)
+    assert card.x() == area.right() + 1 - card.width()
+
+    card.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    card.showAt(QPoint(area.center().x(), 50), 400, 800)
+    assert card.x() == area.center().x() - card.width()
+    card.showAt(QPoint(area.left(), 50), 400, 800)
+    assert card.x() == area.left()
+    card.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
 
     # A scheduled hide is cancelled if the mouse enters the card first,
     # mirroring the grace period used when leaving the editor/viewer

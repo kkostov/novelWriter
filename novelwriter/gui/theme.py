@@ -40,6 +40,7 @@ from PyQt6.QtGui import (
     QPainterPath,
     QPalette,
     QPixmap,
+    QTransform,
 )
 from PyQt6.QtWidgets import QApplication, QToolTip, QWidget
 
@@ -67,6 +68,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+RTL_MIRROR_ICONS = {"chevron_left", "chevron_right", "fmt_list_u", "more_arrow", "unfold-hide"}
 
 STANDARD_BUTTONS = {
     nwStandardButton.OK: (QT_TRANSLATE_NOOP("Button", "OK"), "btn_ok:action"),
@@ -1109,11 +1112,16 @@ class GuiIcons:
         elif name == "proj_nwx":
             return QIcon(str(CONFIG.assetPath("icons") / "x-novelwriter-project.svg"))
 
+        if CONFIG.rtlMode and (rtlName := f"{name}_rtl") in self._svgData:
+            name = rtlName
+
         if svg := self._svgData.get(name, b""):
             if fill := self._theme.getRawBaseColor(color or "default"):  # pragma: no branch
                 svg = svg.replace(b"#000000", fill)
             pixmap = QPixmap()
             pixmap.loadFromData(svg, "svg")
+            if CONFIG.rtlMode and name in RTL_MIRROR_ICONS:
+                pixmap = pixmap.transformed(QTransform().scale(-1.0, 1.0))
             return QIcon(pixmap)
 
         # If we didn't find one, give up and return an empty icon

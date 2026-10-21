@@ -502,8 +502,8 @@ class GuiWritingStats(NToolDialog):
             lstNovel = 0
             lstNotes = 0
 
-            for n, (dStart, sDiff, wcNovel, wcNotes, sIdle) in enumerate(self.logData):
-                if n == 0:
+            for dStart, sDiff, wcNovel, wcNotes, sIdle in self.logData:
+                if sessDate is None:
                     sessDate = dStart.date()
                 if sessDate != dStart.date():
                     tempData.append((sessDate, sessTime, lstNovel, lstNotes, sessIdle))

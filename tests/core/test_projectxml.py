@@ -192,6 +192,7 @@ def testProjectXMLReader_ReadCurrent(
 
     assert data.doBackup is False
     assert data.language == "en_GB"
+    assert data.isRTL is True
     assert data.spellCheck is True
     assert data.spellLang is None
     assert data.initCounts == (5561, 601, 29419, 3295)

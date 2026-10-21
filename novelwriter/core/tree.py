@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Literal, overload
 
 from PyQt6.QtCore import QModelIndex
 
-from novelwriter import SHARED
+from novelwriter import CONFIG, SHARED
 from novelwriter.common import safeIsFile
 from novelwriter.constants import nwFiles, nwLabels, nwStyles, trConst
 from novelwriter.core.item import ProjectItem
@@ -418,7 +418,7 @@ class ProjectTree:
                 maxLen = max(maxLen, len(tocLine))
 
         try:
-            with open(runtimePath / nwFiles.TOC_FILE, mode="w", encoding="utf-8") as toc:
+            with open(runtimePath / nwFiles.TOC_FILE, mode="w", encoding="utf-8", newline=CONFIG.lineEnding) as toc:
                 toc.write("\n")
                 toc.write("Table of Contents\n")
                 toc.write("=================\n")

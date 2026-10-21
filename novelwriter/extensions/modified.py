@@ -25,21 +25,27 @@ import logging
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QEvent, QModelIndex, QSize, Qt, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QEvent, QModelIndex, QRect, QRectF, QSize, Qt, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QKeySequence, QPainter, QPaintEvent, QPalette
 from PyQt6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
     QFontDialog,
+    QHBoxLayout,
     QLabel,
     QPushButton,
+    QRadioButton,
     QSpinBox,
     QSplitter,
     QSplitterHandle,
+    QStyle,
+    QStyleOptionButton,
     QStyleOptionToolButton,
+    QStylePainter,
     QToolButton,
     QTreeView,
     QWidget,
@@ -57,6 +63,7 @@ from novelwriter.types import (
     QtMouseLeft,
     QtMouseMiddle,
     QtMouseOver,
+    QtPaintAntiAlias,
     QtRoleAccept,
     QtRoleReject,
     QtToolButtonTextIcon,
@@ -344,6 +351,64 @@ class NPushButton(QPushButton):
             self.setIcon(SHARED.theme.getIcon(self._icon))
 
 
+class NRadioButton(QRadioButton):
+    """Custom: Modified QRadioButton.
+
+    Draws the radio indicator in the same style as NSwitch.
+    """
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        """Draw the label with the style, and the indicator directly."""
+        if not (style := self.style()):
+            return
+
+        opt = QStyleOptionButton()
+        self.initStyleOption(opt)
+        rect = QRectF(style.subElementRect(QStyle.SubElement.SE_RadioButtonIndicator, opt, self))
+        opt.rect = style.subElementRect(QStyle.SubElement.SE_RadioButtonContents, opt, self)
+
+        painter = QStylePainter(self)
+        painter.drawControl(QStyle.ControlElement.CE_RadioButtonLabel, opt)
+
+        palette = self.palette()
+        centre = rect.center()
+        radius = 0.5 * min(rect.width(), rect.height()) - 0.5
+
+        painter.setRenderHint(QtPaintAntiAlias, True)
+        painter.setOpacity(1.0 if self.isEnabled() else 0.5)
+        painter.setPen(palette.highlight().color() if self.hasFocus() else palette.mid().color())
+        painter.setBrush(SHARED.theme.accentCol if self.isChecked() else palette.alternateBase())
+        painter.drawEllipse(centre, radius, radius)
+        painter.end()
+
+
+class NHRadioGroup(QWidget):
+    """Custom: Group of Radio Buttons."""
+
+    __slots__ = ("_group", "_layout")
+
+    def __init__(self, parent: QWidget, label: str, data: dict[int, str]) -> None:
+        super().__init__(parent)
+        self._group = QButtonGroup(self)
+        self._layout = QHBoxLayout()
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        for key, text in data.items():
+            button = NRadioButton(text, self)
+            button.setAccessibleName(f"{label}: {text}")
+            self._group.addButton(button, key)
+            self._layout.addWidget(button)
+        self.setLayout(self._layout)
+
+    def setCheckedId(self, index: int) -> None:
+        """Set the currently checked button."""
+        if button := self._group.button(index):
+            button.setChecked(True)
+
+    def checkedId(self) -> int:
+        """Get the current checked button."""
+        return self._group.checkedId()
+
+
 class NIconButton(QToolButton):
     """Custom: Icon Push Button.
 
@@ -370,6 +435,14 @@ class NIconButton(QToolButton):
         """Refresh the icon for theme updates."""
         if self._icon:  # pragma: no branch
             self.setIcon(SHARED.theme.getIcon(self._icon))
+
+    def setToolTip(self, text: str | None, shortcut: str = "") -> None:
+        """Set the tooltip with an optional shortcut, and use the text as
+        the accessible name.
+        """
+        text = text or ""
+        super().setToolTip(f"{text} [{shortcut}]" if shortcut else text)
+        self.setAccessibleName(text)
 
     def sizeHint(self) -> QSize:
         """Pad the size hint to a square the height of a standard QPushButton."""
@@ -409,6 +482,14 @@ class NFlatIconButton(QToolButton):
         """Refresh the icon for theme updates."""
         if self._icon:  # pragma: no branch
             self.setThemeIcon(self._icon)
+
+    def setToolTip(self, text: str | None, shortcut: str = "") -> None:
+        """Set the tooltip with an optional shortcut, and use the text as
+        the accessible name.
+        """
+        text = text or ""
+        super().setToolTip(f"{text} [{shortcut}]" if shortcut else text)
+        self.setAccessibleName(text)
 
     def paintEvent(self, event: QPaintEvent | None) -> None:
         """Paint the icon with a background colour when hovered or checked."""
@@ -486,9 +567,11 @@ class NFlatIconTextButton(QToolButton):
             margin = (rect.height() - size.height()) // 2
             x = rect.x() + margin
             y = rect.y() + margin
+            direction = self.layoutDirection()
             if not icon.isNull():  # pragma: no branch
-                icon.paint(painter, x, y, size.width(), size.height(), QtAlignCenter, mode, state)
-            textRect = rect.adjusted(x + size.width() + margin, 0, -margin, 0)
+                iconRect = QStyle.visualRect(direction, rect, QRect(x, y, size.width(), size.height()))
+                icon.paint(painter, iconRect, QtAlignCenter, mode, state)
+            textRect = QStyle.visualRect(direction, rect, rect.adjusted(x + size.width() + margin, 0, -margin, 0))
             painter.setPen(opt.palette.color(QPalette.ColorRole.ButtonText))
             painter.drawText(textRect, QtAlignLeftMiddle, text)
 

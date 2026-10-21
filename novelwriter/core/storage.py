@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 
+from contextlib import suppress
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -367,6 +368,7 @@ class ProjectStorage:
             logger.error("No path set")
             return False
 
+        opened = False
         try:
             baseMeta = basePath / "meta"
             baseCont = basePath / "content"
@@ -385,6 +387,7 @@ class ProjectStorage:
             comp = ZIP_STORED if compression is None else ZIP_DEFLATED
             level = minmax(compression, 0, 9) if isinstance(compression, int) else None
             with ZipFile(target, mode="w", compression=comp, compresslevel=level) as zipObj:
+                opened = True
                 logger.info("Creating archive: %s", target)
                 zipObj.writestr(nwFiles.MANIFEST_FILE, self._generateManifest(nwProjectKind.BACKUP, saveTime))
                 for srcPath, zipPath in files:
@@ -395,6 +398,10 @@ class ProjectStorage:
         except Exception:
             logger.error("Failed to create archive")
             logException()
+            if opened:
+                # Don't leave a broken archive behind
+                with suppress(OSError):
+                    Path(target).unlink(missing_ok=True)
             return False
 
         return True
@@ -477,6 +484,7 @@ class ProjectStorage:
                 self._manifestPath.write_text(
                     self._generateManifest(kind, saveTime),
                     encoding="utf-8",
+                    newline=CONFIG.lineEnding,
                 )
             except Exception:
                 logger.error("Failed to write manifest")
@@ -627,7 +635,7 @@ class _LegacyStorage:
                             )
                         )
 
-            with open(sessJson, mode="a+", encoding="utf-8") as fObj:
+            with open(sessJson, mode="a+", encoding="utf-8", newline=CONFIG.lineEnding) as fObj:
                 fObj.write(session.createInitial(offset))
                 fObj.write("".join(data))
 
@@ -668,7 +676,7 @@ class _LegacyDocuments:
                     parser = NTomlParser(flat=True)
                     toml = parser.writeString(self._parseOldDocumentMeta(meta)).strip()
                     output = item.with_suffix(".md")
-                    output.write_text(f"+++\n{toml}\n+++\n{text}", encoding="utf-8")
+                    output.write_text(f"+++\n{toml}\n+++\n{text}", encoding="utf-8", newline=CONFIG.lineEnding)
                     logger.info("Converted file: %s -> %s", item.name, output.name)
 
                 except Exception:

@@ -30,7 +30,7 @@ from pathlib import Path
 from time import time
 from typing import TYPE_CHECKING
 
-from novelwriter import SHARED, __hexversion__, __version__
+from novelwriter import CONFIG, SHARED, __hexversion__, __version__
 from novelwriter.common import (
     checkBool,
     checkInt,
@@ -278,7 +278,7 @@ class ProjectXMLReader:
             if xItem.tag == "doBackup":
                 data.setDoBackup(xItem.text)
             elif xItem.tag == "language":
-                data.setLanguage(xItem.text)
+                data.setLanguage(xItem.text, xItem.attrib.get("rtl"))
             elif xItem.tag == "spellChecking":
                 data.setSpellLang(xItem.text)
                 data.setSpellCheck(xItem.attrib.get("auto"))
@@ -540,7 +540,7 @@ class ProjectXMLWriter:
 
         xSettings = ET.SubElement(xRoot, "settings")
         self._packSingleValue(xSettings, "doBackup", yesNo(data.doBackup))
-        self._packSingleValue(xSettings, "language", data.language)
+        self._packSingleValue(xSettings, "language", data.language, attrib={"rtl": yesNo(data.isRTL)})
         self._packSingleValue(xSettings, "spellChecking", data.spellLang, attrib={"auto": yesNo(data.spellCheck)})
         self._packSingleValue(xSettings, "projectTarget", str(data.targetCount), attrib=targetAttr)
         self._packSingleValue(xSettings, "dailyTarget", str(data.dailyGoal), attrib=dailyAttr)
@@ -579,7 +579,8 @@ class ProjectXMLWriter:
         try:
             xml = ET.ElementTree(xRoot)
             xmlIndent(xml)
-            xml.write(tmp, encoding="utf-8", xml_declaration=True)
+            with open(tmp, mode="w", encoding="utf-8", errors="xmlcharrefreplace", newline=CONFIG.lineEnding) as fObj:
+                xml.write(fObj, encoding="unicode", xml_declaration=True)
             tmp.replace(self._path)
         except Exception as exc:
             SHARED.appendErrorMessage(exc)

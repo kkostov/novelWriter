@@ -97,6 +97,7 @@ class GuiPreferences(NDialog):
 
         self.searchText = QLineEdit(self)
         self.searchText.setPlaceholderText(self.tr("Search"))
+        self.searchText.setAccessibleName(self.searchText.placeholderText())
         self.searchText.setMinimumWidth(200)
         self.searchText.addAction(self.searchAction, QLineEdit.ActionPosition.TrailingPosition)
 
@@ -289,6 +290,15 @@ class GuiPreferences(NDialog):
             self.tr("Prefer character count over word count"),
             self.useCharCount,
             self.tr("Display character count instead where available."),
+        )
+
+        # Force RTL Layout
+        self.guiForceRTL = NSwitch(self)
+        self.guiForceRTL.setChecked(CONFIG.guiForceRTL)
+        self.mainForm.addRow(
+            self.tr("Force right-to-left layout"),
+            self.guiForceRTL,
+            self.tr("If off, layout direction is determined by the display language."),
         )
 
         # Document Style
@@ -1018,6 +1028,25 @@ class GuiPreferences(NDialog):
             self.tr("Switch the editor to use Vim editor commands."),
         )
 
+        # Label
+        self.sidebar.addLabel(self.tr("More"))
+
+        # Advanced
+        # ========
+
+        title = self.tr("Advanced")
+        section += 1
+        self.sidebar.addButton(title, section)
+        self.mainForm.addGroupLabel(title, section)
+
+        # Force Unix Line Endings
+        self.forceUnixLineEndings = NSwitch(self)
+        self.forceUnixLineEndings.setChecked(CONFIG.forceUnixLineEndings)
+        self.mainForm.addRow(
+            self.tr("Use Unix line endings for all project files"),
+            self.forceUnixLineEndings,
+        )
+
         self.mainForm.finalise()
         self.sidebar.setSelected(1)
 
@@ -1159,6 +1188,7 @@ class GuiPreferences(NDialog):
         lightTheme = self.lightTheme.currentData()
         darkTheme = self.darkTheme.currentData()
         iconTheme = self.iconTheme.currentData()
+        guiForceRTL = self.guiForceRTL.isChecked()
         hideVScroll = self.hideVScroll.isChecked()
         hideHScroll = self.hideHScroll.isChecked()
         useCharCount = self.useCharCount.isChecked()
@@ -1168,6 +1198,7 @@ class GuiPreferences(NDialog):
         updateTheme |= CONFIG.iconTheme != iconTheme
         needsRestart |= CONFIG.guiLocale != guiLocale
         needsRestart |= CONFIG.guiFont != self._guiFont
+        needsRestart |= CONFIG.guiForceRTL != guiForceRTL
         refreshTree |= CONFIG.useCharCount != useCharCount
         updateSyntax |= CONFIG.lightTheme != lightTheme
         updateSyntax |= CONFIG.darkTheme != darkTheme
@@ -1175,6 +1206,7 @@ class GuiPreferences(NDialog):
         initViewport |= CONFIG.hideHScroll != hideHScroll
 
         CONFIG.guiLocale = guiLocale
+        CONFIG.guiForceRTL = guiForceRTL
         CONFIG.lightTheme = lightTheme
         CONFIG.darkTheme = darkTheme
         CONFIG.iconTheme = iconTheme
@@ -1346,6 +1378,9 @@ class GuiPreferences(NDialog):
         updateVimMode |= CONFIG.vimMode != vimMode
 
         CONFIG.vimMode = vimMode
+
+        # Advanced
+        CONFIG.forceUnixLineEndings = self.forceUnixLineEndings.isChecked()
 
         # Finalise
         CONFIG.saveConfig()

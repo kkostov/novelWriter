@@ -34,9 +34,9 @@ from typing import TYPE_CHECKING, Any, Literal, TypeGuard, TypeVar
 from urllib.parse import urljoin
 from urllib.request import pathname2url
 
-from PyQt6.QtCore import QCoreApplication, QLocale, QMimeData, QUrl
+from PyQt6.QtCore import QCoreApplication, QLocale, QMimeData, Qt, QUrl
 from PyQt6.QtGui import QAction, QDesktopServices, QFont, QFontDatabase, QFontInfo, QIcon
-from PyQt6.QtWidgets import QMenu, QMenuBar, QWidget
+from PyQt6.QtWidgets import QMenu, QMenuBar, QStyle, QWidget
 
 from novelwriter.constants import nwConst, nwLabels, nwQuotes, nwUnicode, trConst
 from novelwriter.enum import nwItemClass, nwItemLayout, nwItemType
@@ -384,6 +384,18 @@ def elide(text: str, length: int) -> str:
     return text
 
 
+def textDirection(text: str) -> Literal["ltr", "rtl", ""]:
+    """Return the direction of the first strong character in a text,
+    or an empty string if there is none.
+    """
+    for c in text:
+        if (bidi := unicodedata.bidirectional(c)) == "L":
+            return "ltr"
+        elif bidi in ("R", "AL"):
+            return "rtl"
+    return ""
+
+
 def yesNo(value: int | bool | None) -> Literal["yes", "no"]:
     """Convert a boolean evaluated variable to a yes or no."""
     return "yes" if value else "no"
@@ -615,6 +627,13 @@ def qtAddMenu(parent: QMenuBar | QMenu, label: str) -> QMenu:
     menu = QMenu(label, parent)
     parent.addMenu(menu)
     return menu
+
+
+def qtVisualAlign(widget: QWidget, align: Qt.AlignmentFlag) -> Qt.AlignmentFlag:
+    """Map an alignment to the widget's layout direction. Labels
+    otherwise align by the direction of their text.
+    """
+    return QStyle.visualAlignment(widget.layoutDirection(), align)
 
 
 def encodeMimeHandles(mimeData: QMimeData, handles: list[str]) -> None:

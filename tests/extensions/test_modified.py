@@ -39,7 +39,10 @@ from novelwriter.extensions.modified import (
     NFlatIconButton,
     NFlatIconTextButton,
     NFontDialog,
+    NHRadioGroup,
+    NIconButton,
     NNonBlockingDialog,
+    NRadioButton,
     NSpinBox,
     NSplitterHandle,
     NToolDialog,
@@ -335,6 +338,77 @@ def testNFlatButtons_Main(qtbot: QtBot, mockGUI: MockGuiMain):
     assert button1.isCheckable() is True
     button1.setCheckable(False)
     assert button1.isCheckable() is False
+
+    # Tooltips are used as accessible names, without the shortcut
+    button1.setToolTip("Project Tree View", "Ctrl+T")
+    assert button1.toolTip() == "Project Tree View [Ctrl+T]"
+    assert button1.accessibleName() == "Project Tree View"
+    button1.setToolTip("Settings")
+    assert button1.toolTip() == "Settings"
+    assert button1.accessibleName() == "Settings"
+    button1.setToolTip(None)
+    assert button1.toolTip() == ""
+    assert button1.accessibleName() == ""
+
+    button3 = NIconButton(dialog, size, "add:add")
+    button3.setToolTip("Add", "Ctrl+N")
+    assert button3.toolTip() == "Add [Ctrl+N]"
+    assert button3.accessibleName() == "Add"
+
+
+@pytest.mark.gui
+def testNRadioButton_Main(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain):
+    """Test the NRadioButton class."""
+    button = NRadioButton("Text", None)
+    dialog = SimpleDialog(button)
+    dialog.show()
+
+    # Paint unchecked and checked
+    assert button.isChecked() is False
+    assert button.grab().isNull() is False
+    button.setChecked(True)
+    assert button.grab().isNull() is False
+
+    # Disabled
+    button.setEnabled(False)
+    assert button.grab().isNull() is False
+
+    # No style
+    with monkeypatch.context() as mp:
+        mp.setattr(button, "style", lambda: None)
+        assert button.grab().isNull() is False
+
+
+@pytest.mark.gui
+def testNHRadioGroup_Main(qtbot: QtBot, mockGUI: MockGuiMain):
+    """Test the NHRadioGroup class."""
+    dialog = SimpleDialog(None)
+    group = NHRadioGroup(dialog, "Label", {0: "None", 1: "One", 2: "Two"})
+    dialog.addWidget(group)
+    dialog.show()
+
+    # The buttons are labelled, and nothing is checked initially
+    buttons = group._group.buttons()
+    assert [b.text() for b in buttons] == ["None", "One", "Two"]
+    assert [b.accessibleName() for b in buttons] == ["Label: None", "Label: One", "Label: Two"]
+    assert group.checkedId() == -1
+
+    # Set by ID
+    group.setCheckedId(2)
+    assert group.checkedId() == 2
+
+    # An unknown ID is ignored
+    group.setCheckedId(9)
+    assert group.checkedId() == 2
+
+    # Clicking a button changes the checked ID
+    buttons[1].click()
+    assert group.checkedId() == 1
+
+    # An empty group has nothing to check
+    empty = NHRadioGroup(dialog, "Empty", {})
+    empty.setCheckedId(0)
+    assert empty.checkedId() == -1
 
 
 @pytest.mark.gui

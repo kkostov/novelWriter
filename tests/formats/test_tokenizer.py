@@ -115,6 +115,10 @@ def testTokenizer_Setters(mockGUI: MockGuiMain):
     assert tokens._doBodyText is True
     assert tokens._doComments == {nwComment.FOOTNOTE}
     assert tokens._doKeywords is False
+    assert tokens._colorHeads is True
+    assert tokens._boldHeads is True
+    assert tokens._hFormatter._upper is False
+    assert tokens._showStatus is False
 
     # Set new values
     tokens.setPartitionFormat(f"T: {nwHeadFmt.TITLE}", True)
@@ -141,6 +145,7 @@ def testTokenizer_Setters(mockGUI: MockGuiMain):
     tokens.setCommentType(nwComment.SHORT, True)
     tokens.setCommentType(nwComment.SYNOPSIS, True)
     tokens.setKeywords(True)
+    tokens.setHeadingStyles(False, False, True, True)
 
     # Check new values
     assert tokens._fmtPart == f"T: {nwHeadFmt.TITLE}"
@@ -181,6 +186,10 @@ def testTokenizer_Setters(mockGUI: MockGuiMain):
         nwComment.SHORT,
     }
     assert tokens._doKeywords is True
+    assert tokens._colorHeads is False
+    assert tokens._boldHeads is False
+    assert tokens._hFormatter._upper is True
+    assert tokens._showStatus is True
 
     # Properties
     assert tokens.textStats == {}
@@ -205,7 +214,7 @@ def testTokenizer_TextOps(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain,
     mockRnd.reset()
     buildTestProject(project, fncPath)
 
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     project._loadProjectLocalisation()
 
     tokens = BareTokenizer(project)
@@ -267,17 +276,48 @@ def testTokenizer_TextOps(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain,
         BlockFmt.CENTRE | BlockFmt.PBB,
     )
 
+    # Odd page break if the title style uses it
+    tokens.setTitleStyle(True, 2)
+    tokens.addRootHeading(C.hPlotRoot)
+    assert tokens._blocks[-1][4] == BlockFmt.CENTRE | BlockFmt.HBB
+
+    # Otherwise always any page break
+    tokens.setTitleStyle(True, 0)
+    tokens.addRootHeading(C.hPlotRoot)
+    assert tokens._blocks[-1][4] == BlockFmt.CENTRE | BlockFmt.PBB
+
     # Set Text
+    tokens._isNovel = True
+    tokens._statusText = "(Draft)"
     tokens.setText("stuff")
     assert tokens._text == ""
+    assert tokens._isNovel is False
+    assert tokens._statusText == ""
+    assert tokens._statusFmt == []
 
+    sceneItem = project.tree[C.hSceneDoc]
+    assert sceneItem is not None
+    sceneItem.setStatus(C.sDraft)
     tokens.setText(C.hSceneDoc)
     assert tokens._text == docText
+    assert tokens._statusText == "(Draft)"
+    assert tokens._statusFmt == [
+        (0, TextFmt.B_B, ""),
+        (0, TextFmt.COL_B, "keyword"),
+        (7, TextFmt.COL_E, ""),
+        (7, TextFmt.B_E, ""),
+    ]
 
     tokens.setText(C.hSceneDoc, docText)
     assert tokens._text == docText
 
     assert tokens._isNovel is True
+
+    # No status label if the status has no name
+    project.data.itemStatus.update([])
+    tokens.setText(C.hSceneDoc, docText)
+    assert tokens._statusText == ""
+    assert tokens._statusFmt == []
 
     # Pre Processing
     tokens.doPreProcessing()
@@ -466,10 +506,21 @@ def testTokenizer_HeaderStyleNone(mockGUI: MockGuiMain):
         tokens.tokenizeText()
         return tokens._blocks[0][4]
 
-    tokens.setTitleStyle(False, False)
-    tokens.setPartitionStyle(False, False)
-    tokens.setChapterStyle(False, False)
-    tokens.setSceneStyle(False, False)
+    # Invalid break types are ignored
+    tokens.setTitleStyle(False, 9)
+    tokens.setPartitionStyle(False, 9)
+    tokens.setChapterStyle(False, 9)
+    tokens.setSceneStyle(False, 9)
+
+    assert tokens._titleStyle == BlockFmt.NONE
+    assert tokens._partStyle == BlockFmt.NONE
+    assert tokens._chapterStyle == BlockFmt.NONE
+    assert tokens._sceneStyle == BlockFmt.NONE
+
+    tokens.setTitleStyle(False, 0)
+    tokens.setPartitionStyle(False, 0)
+    tokens.setChapterStyle(False, 0)
+    tokens.setSceneStyle(False, 0)
 
     assert tokens._titleStyle == BlockFmt.NONE
     assert tokens._partStyle == BlockFmt.NONE
@@ -527,10 +578,10 @@ def testTokenizer_HeaderStyleCenter(mockGUI: MockGuiMain):
         tokens.tokenizeText()
         return tokens._blocks[0][4]
 
-    tokens.setTitleStyle(True, False)
-    tokens.setPartitionStyle(True, False)
-    tokens.setChapterStyle(True, False)
-    tokens.setSceneStyle(True, False)
+    tokens.setTitleStyle(True, 0)
+    tokens.setPartitionStyle(True, 0)
+    tokens.setChapterStyle(True, 0)
+    tokens.setSceneStyle(True, 0)
 
     assert tokens._titleStyle == BlockFmt.CENTRE
     assert tokens._partStyle == BlockFmt.CENTRE
@@ -588,10 +639,10 @@ def testTokenizer_HeaderStylePageBreak(mockGUI: MockGuiMain):
         tokens.tokenizeText()
         return tokens._blocks[0][4]
 
-    tokens.setTitleStyle(False, True)
-    tokens.setPartitionStyle(False, True)
-    tokens.setChapterStyle(False, True)
-    tokens.setSceneStyle(False, True)
+    tokens.setTitleStyle(False, 1)
+    tokens.setPartitionStyle(False, 1)
+    tokens.setChapterStyle(False, 1)
+    tokens.setSceneStyle(False, 1)
 
     assert tokens._titleStyle == BlockFmt.PBB
     assert tokens._partStyle == BlockFmt.PBB
@@ -639,7 +690,7 @@ def testTokenizer_HeaderStylePageBreak(mockGUI: MockGuiMain):
 
 @pytest.mark.core
 def testTokenizer_HeaderStylePageBreakCenter(mockGUI: MockGuiMain):
-    """Test header styling page break and centred."""
+    """Test header styling odd page break and centred."""
     project = NWProject()
     tokens = BareTokenizer(project)
 
@@ -649,26 +700,26 @@ def testTokenizer_HeaderStylePageBreakCenter(mockGUI: MockGuiMain):
         tokens.tokenizeText()
         return tokens._blocks[0][4]
 
-    tokens.setTitleStyle(True, True)
-    tokens.setPartitionStyle(True, True)
-    tokens.setChapterStyle(True, True)
-    tokens.setSceneStyle(True, True)
+    tokens.setTitleStyle(True, 2)
+    tokens.setPartitionStyle(True, 2)
+    tokens.setChapterStyle(True, 2)
+    tokens.setSceneStyle(True, 2)
 
-    assert tokens._titleStyle == BlockFmt.CENTRE | BlockFmt.PBB
-    assert tokens._partStyle == BlockFmt.CENTRE | BlockFmt.PBB
-    assert tokens._chapterStyle == BlockFmt.CENTRE | BlockFmt.PBB
-    assert tokens._sceneStyle == BlockFmt.CENTRE | BlockFmt.PBB
+    assert tokens._titleStyle == BlockFmt.CENTRE | BlockFmt.HBB
+    assert tokens._partStyle == BlockFmt.CENTRE | BlockFmt.HBB
+    assert tokens._chapterStyle == BlockFmt.CENTRE | BlockFmt.HBB
+    assert tokens._sceneStyle == BlockFmt.CENTRE | BlockFmt.HBB
 
     # Novel Docs
     tokens._isNovel = True
 
     # First Document is False
-    assert processStyle("# Title\n", False) == BlockFmt.CENTRE | BlockFmt.PBB
-    assert processStyle("## Chapter\n", False) == BlockFmt.CENTRE | BlockFmt.PBB
-    assert processStyle("### Scene\n", False) == BlockFmt.CENTRE | BlockFmt.PBB
+    assert processStyle("# Title\n", False) == BlockFmt.CENTRE | BlockFmt.HBB
+    assert processStyle("## Chapter\n", False) == BlockFmt.CENTRE | BlockFmt.HBB
+    assert processStyle("### Scene\n", False) == BlockFmt.CENTRE | BlockFmt.HBB
     assert processStyle("#### Section\n", False) == BlockFmt.NONE
-    assert processStyle("#! My Novel\n", False) == BlockFmt.CENTRE | BlockFmt.PBB
-    assert processStyle("##! Prologue\n", False) == BlockFmt.CENTRE | BlockFmt.PBB
+    assert processStyle("#! My Novel\n", False) == BlockFmt.CENTRE | BlockFmt.HBB
+    assert processStyle("##! Prologue\n", False) == BlockFmt.CENTRE | BlockFmt.HBB
 
     # First Document is True
     assert processStyle("# Title\n", True) == BlockFmt.CENTRE
@@ -686,7 +737,7 @@ def testTokenizer_HeaderStylePageBreakCenter(mockGUI: MockGuiMain):
     assert processStyle("## Chapter\n", False) == BlockFmt.NONE
     assert processStyle("### Scene\n", False) == BlockFmt.NONE
     assert processStyle("#### Section\n", False) == BlockFmt.NONE
-    assert processStyle("#! My Novel\n", False) == BlockFmt.CENTRE | BlockFmt.PBB
+    assert processStyle("#! My Novel\n", False) == BlockFmt.CENTRE | BlockFmt.HBB
     assert processStyle("##! Prologue\n", False) == BlockFmt.NONE
 
     # First Document is True
@@ -713,10 +764,10 @@ def testTokenizer_HeaderStyleSeparation(mockGUI: MockGuiMain):
     tokens._isNovel = True
 
     # Title Styles
-    tokens.setTitleStyle(True, True)
-    tokens.setPartitionStyle(False, False)
-    tokens.setChapterStyle(False, False)
-    tokens.setSceneStyle(False, False)
+    tokens.setTitleStyle(True, 1)
+    tokens.setPartitionStyle(False, 0)
+    tokens.setChapterStyle(False, 0)
+    tokens.setSceneStyle(False, 0)
 
     assert tokens._titleStyle == BlockFmt.CENTRE | BlockFmt.PBB
     assert tokens._partStyle == BlockFmt.NONE
@@ -731,10 +782,10 @@ def testTokenizer_HeaderStyleSeparation(mockGUI: MockGuiMain):
     assert processStyle("##! Prologue\n", False) == BlockFmt.NONE
 
     # Partition Styles
-    tokens.setTitleStyle(False, False)
-    tokens.setPartitionStyle(True, True)
-    tokens.setChapterStyle(False, False)
-    tokens.setSceneStyle(False, False)
+    tokens.setTitleStyle(False, 0)
+    tokens.setPartitionStyle(True, 1)
+    tokens.setChapterStyle(False, 0)
+    tokens.setSceneStyle(False, 0)
 
     assert tokens._titleStyle == BlockFmt.NONE
     assert tokens._partStyle == BlockFmt.CENTRE | BlockFmt.PBB
@@ -749,10 +800,10 @@ def testTokenizer_HeaderStyleSeparation(mockGUI: MockGuiMain):
     assert processStyle("##! Prologue\n", False) == BlockFmt.NONE
 
     # Chapter Styles
-    tokens.setTitleStyle(False, False)
-    tokens.setPartitionStyle(False, False)
-    tokens.setChapterStyle(True, True)
-    tokens.setSceneStyle(False, False)
+    tokens.setTitleStyle(False, 0)
+    tokens.setPartitionStyle(False, 0)
+    tokens.setChapterStyle(True, 1)
+    tokens.setSceneStyle(False, 0)
 
     assert tokens._titleStyle == BlockFmt.NONE
     assert tokens._partStyle == BlockFmt.NONE
@@ -767,10 +818,10 @@ def testTokenizer_HeaderStyleSeparation(mockGUI: MockGuiMain):
     assert processStyle("##! Prologue\n", False) == BlockFmt.CENTRE | BlockFmt.PBB
 
     # Scene Styles
-    tokens.setTitleStyle(False, False)
-    tokens.setPartitionStyle(False, False)
-    tokens.setChapterStyle(False, False)
-    tokens.setSceneStyle(True, True)
+    tokens.setTitleStyle(False, 0)
+    tokens.setPartitionStyle(False, 0)
+    tokens.setChapterStyle(False, 0)
+    tokens.setSceneStyle(True, 1)
 
     assert tokens._titleStyle == BlockFmt.NONE
     assert tokens._partStyle == BlockFmt.NONE
@@ -1863,7 +1914,7 @@ def testTokenizer_LineForMargin(mockGUI: MockGuiMain):
     tokens._handle = TMH
     tokens._isNovel = True
     tokens.setLineForMargin(True)
-    tokens.setChapterStyle(False, True)
+    tokens.setChapterStyle(False, 1)
 
     # Between paragraphs
     tokens._text = "Line one\n\nLine two"
@@ -1909,6 +1960,33 @@ def testTokenizer_LineForMargin(mockGUI: MockGuiMain):
         (BlockTyp.SKIP, "", "", [], BlockFmt.NONE),
         (BlockTyp.SKIP, "", "", [], BlockFmt.PBB),
         (BlockTyp.HEAD1, f"{TMH}:T0002", "Chapter Two", [], BlockFmt.NONE),
+        (BlockTyp.SKIP, "", "", [], BlockFmt.NONE),
+        (BlockTyp.TEXT, "", "Text", [], BlockFmt.NONE),
+        (BlockTyp.SKIP, "", "", [], BlockFmt.NONE),
+    ]
+
+    # Both page breaks are moved to the empty line
+    tokens.setChapterStyle(False, 2)
+    tokens._text = "## Chapter One\n\nText"
+    tokens._isFirst = False
+    tokens.setBreakNext()
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.SKIP, "", "", [], BlockFmt.PBB | BlockFmt.HBB),
+        (BlockTyp.HEAD1, f"{TMH}:T0001", "Chapter One", [], BlockFmt.NONE),
+        (BlockTyp.SKIP, "", "", [], BlockFmt.NONE),
+        (BlockTyp.TEXT, "", "Text", [], BlockFmt.NONE),
+        (BlockTyp.SKIP, "", "", [], BlockFmt.NONE),
+    ]
+
+    # Both page breaks are removed from the first block
+    tokens._text = "## Chapter One\n\nText"
+    tokens._isFirst = True
+    tokens.setBreakNext()
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.SKIP, "", "", [], BlockFmt.NONE),
+        (BlockTyp.HEAD1, f"{TMH}:T0001", "Chapter One", [], BlockFmt.NONE),
         (BlockTyp.SKIP, "", "", [], BlockFmt.NONE),
         (BlockTyp.TEXT, "", "Text", [], BlockFmt.NONE),
         (BlockTyp.SKIP, "", "", [], BlockFmt.NONE),
@@ -2333,7 +2411,7 @@ def testTokenizer_TextIndent(mockGUI: MockGuiMain):
 def testTokenizer_ProcessHeaders(mockGUI: MockGuiMain):
     """Test the header and page parser of the Tokenizer class."""
     project = NWProject()
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     project._loadProjectLocalisation()
     tokens = BareTokenizer(project)
     tokens._isNovel = True
@@ -2520,10 +2598,158 @@ def testTokenizer_ProcessHeaders(mockGUI: MockGuiMain):
 
 
 @pytest.mark.core
+def testTokenizer_HeaderStatus(mockGUI: MockGuiMain):
+    """Test the status labels added below headings."""
+    project = NWProject()
+    project.data.setLanguage("en", False)
+    project._loadProjectLocalisation()
+    tokens = BareTokenizer(project)
+    tokens._isNovel = True
+    tokens._handle = TMH
+
+    sFmt = [
+        (0, TextFmt.B_B, ""),
+        (0, TextFmt.COL_B, "keyword"),
+        (7, TextFmt.COL_E, ""),
+        (7, TextFmt.B_E, ""),
+    ]
+    tokens._statusText = "(Draft)"
+    tokens._statusFmt = sFmt
+    tokens.setHeadingStyles(True, True, False, True)
+
+    # Title, First Page
+    tokens._text = "#! My Novel\n"
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.TITLE, TM1, "My Novel", [], BlockFmt.CENTRE),
+    ]
+
+    # Partition
+    tokens._text = "# Part One\n"
+    tokens.setPartitionFormat(f"T: {nwHeadFmt.TITLE}", False)
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.PART, TM1, "T: Part One", [], BlockFmt.PBB | BlockFmt.CENTRE),
+        (BlockTyp.COMMENT, "", "(Draft)", sFmt, BlockFmt.CENTRE),
+    ]
+
+    # Partition, hidden
+    tokens._text = "# Part One\n"
+    tokens.setPartitionFormat(f"T: {nwHeadFmt.TITLE}", True)
+    tokens.tokenizeText()
+    assert tokens._blocks == []
+
+    # Chapter
+    tokens._text = "## Chapter One\n"
+    tokens.setChapterFormat(f"C: {nwHeadFmt.TITLE}", False)
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.HEAD1, TM1, "C: Chapter One", [], BlockFmt.PBB),
+        (BlockTyp.COMMENT, "", "(Draft)", sFmt, BlockFmt.NONE),
+    ]
+
+    # Chapter, hidden
+    tokens._text = "## Chapter One\n"
+    tokens.setChapterFormat(f"C: {nwHeadFmt.TITLE}", True)
+    tokens.tokenizeText()
+    assert tokens._blocks == []
+
+    # Unnumbered Chapter
+    tokens._text = "##! Prologue\n"
+    tokens.setUnNumberedFormat(f"U: {nwHeadFmt.TITLE}", False)
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.HEAD1, TM1, "U: Prologue", [], BlockFmt.PBB),
+        (BlockTyp.COMMENT, "", "(Draft)", sFmt, BlockFmt.NONE),
+    ]
+
+    # Scene, centred
+    tokens._text = "### Scene One\n"
+    tokens.setSceneFormat(f"S: {nwHeadFmt.TITLE}", False)
+    tokens.setSceneStyle(True, 0)
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.HEAD2, TM1, "S: Scene One", [], BlockFmt.CENTRE),
+        (BlockTyp.COMMENT, "", "(Draft)", sFmt, BlockFmt.CENTRE),
+    ]
+    tokens.setSceneStyle(False, 0)
+
+    # Scene, hidden
+    tokens._text = "### Scene One\n"
+    tokens.setSceneFormat(f"S: {nwHeadFmt.TITLE}", True)
+    tokens.tokenizeText()
+    assert tokens._blocks == []
+
+    # Scene, separator
+    tokens._text = "### Scene One\n"
+    tokens.setSceneFormat("* * *", False)
+    tokens._noSep = False
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.SEP, TM1, "* * *", [], BlockFmt.CENTRE),
+    ]
+
+    # Scene, empty format
+    tokens._text = "### Scene One\n"
+    tokens.setSceneFormat("", False)
+    tokens._noSep = False
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.SKIP, TM1, "", [], BlockFmt.NONE),
+    ]
+
+    # Scene, horizontal rule
+    tokens._text = "### Scene One\n"
+    tokens.setSceneFormat(nwHeadFmt.HRULE, False)
+    tokens._noSep = False
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.HRULE, TM1, "", [], BlockFmt.NONE),
+    ]
+
+    # Hard Scene
+    tokens._text = "###! Scene One\n"
+    tokens.setHardSceneFormat(f"H: {nwHeadFmt.TITLE}", False)
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.HEAD2, TM1, "H: Scene One", [], BlockFmt.NONE),
+        (BlockTyp.COMMENT, "", "(Draft)", sFmt, BlockFmt.NONE),
+    ]
+
+    # Section
+    tokens._text = "#### A Section\n"
+    tokens.setSectionFormat(f"X: {nwHeadFmt.TITLE}", False)
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.HEAD3, TM1, "X: A Section", [], BlockFmt.NONE),
+    ]
+
+    # Notes
+    tokens._isNovel = False
+    tokens._text = "# Heading 1\n\n## Heading 2\n\n### Heading 3\n"
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.HEAD1, TM1, "Heading 1", [], BlockFmt.NONE),
+        (BlockTyp.HEAD2, TM2, "Heading 2", [], BlockFmt.NONE),
+        (BlockTyp.HEAD3, f"{TMH}:T0003", "Heading 3", [], BlockFmt.NONE),
+    ]
+    tokens._isNovel = True
+
+    # Disabled
+    tokens._text = "## Chapter One\n"
+    tokens.setChapterFormat(f"C: {nwHeadFmt.TITLE}", False)
+    tokens.setHeadingStyles(True, True, False, False)
+    tokens.tokenizeText()
+    assert tokens._blocks == [
+        (BlockTyp.HEAD1, TM1, "C: Chapter One", [], BlockFmt.PBB),
+    ]
+
+
+@pytest.mark.core
 def testTokenizer_FormatComment(mockGUI: MockGuiMain):
     """Test note and comment formatting."""
     project = NWProject()
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     project._loadProjectLocalisation()
     tokens = BareTokenizer(project)
 
@@ -2560,7 +2786,7 @@ def testTokenizer_FormatComment(mockGUI: MockGuiMain):
 def testTokenizer_FormatMeta(mockGUI: MockGuiMain):
     """Test meta formatting."""
     project = NWProject()
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     project._loadProjectLocalisation()
     tokens = BareTokenizer(project)
 
@@ -2617,7 +2843,7 @@ def testTokenizer_FormatMeta(mockGUI: MockGuiMain):
 def testTokenizer_BuildOutline(mockGUI: MockGuiMain, ipsumText: list[str]):
     """Test stats counter of the Tokenizer class."""
     project = NWProject()
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     project._loadProjectLocalisation()
     tokens = BareTokenizer(project)
 
@@ -2673,7 +2899,7 @@ def testTokenizer_BuildOutline(mockGUI: MockGuiMain, ipsumText: list[str]):
 def testTokenizer_CountStats(mockGUI: MockGuiMain, ipsumText: list[str]):
     """Test stats counter of the Tokenizer class."""
     project = NWProject()
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     project._loadProjectLocalisation()
     tokens = BareTokenizer(project)
     tokens._isNovel = True
@@ -2962,7 +3188,7 @@ def testTokenizer_CountStats_Dialogue(mockGUI: MockGuiMain):
     CONFIG.altDialogClose = "::"
 
     project = NWProject()
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     project._loadProjectLocalisation()
     tokens = BareTokenizer(project)
     tokens._isNovel = True
@@ -3033,7 +3259,7 @@ def testTokenizer_CountStats_Dialogue(mockGUI: MockGuiMain):
 def testTokenizer_SceneSeparators(mockGUI: MockGuiMain):
     """Test the section and scene separators of the Tokenizer class."""
     project = NWProject()
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     project._loadProjectLocalisation()
     md = ToMarkdown(project, False)
     md._isNovel = True
@@ -3165,7 +3391,7 @@ def testTokenizer_SceneSeparators(mockGUI: MockGuiMain):
 def testTokenizer_HeaderVisibility(mockGUI: MockGuiMain):
     """Test the heading visibility settings of the Tokenizer class."""
     project = NWProject()
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     project._loadProjectLocalisation()
     md = ToMarkdown(project, False)
 
@@ -3275,7 +3501,7 @@ def testTokenizer_HeaderVisibility(mockGUI: MockGuiMain):
 def testTokenizer_CounterHandling(mockGUI: MockGuiMain):
     """Test the heading counter of the Tokenizer class."""
     project = NWProject()
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     project._loadProjectLocalisation()
     md = ToMarkdown(project, False)
     md._isNovel = True
@@ -3358,7 +3584,7 @@ def testTokenizer_CounterHandling(mockGUI: MockGuiMain):
 def testTokenizer_HeadingFormatter(fncPath: Path, mockGUI: MockGuiMain, mockRnd: MockRnd):
     """Check the HeadingFormatter class."""
     project = NWProject()
-    project.setProjectLang("en_GB")
+    project.setProjectLang("en_GB", False)
     mockRnd.reset()
     buildTestProject(project, fncPath)
 

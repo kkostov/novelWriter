@@ -32,6 +32,7 @@ from PyQt6.QtGui import QBrush, QIcon
 from novelwriter import SHARED
 from novelwriter.common import minmax
 from novelwriter.types import (
+    QtAccessibleTextRole,
     QtAlignRight,
     QtDecorationRole,
     QtDisplayRole,
@@ -54,6 +55,7 @@ C_LABEL_SPAN = 0x0000 | QtUserRole
 C_COUNT_TEXT = 0x0100 | QtDisplayRole
 C_COUNT_ALIGN = 0x0100 | QtTextAlignmentRole
 C_COUNT_COLOR = 0x0100 | QtForegroundRole
+C_COUNT_ACCESS = 0x0100 | QtAccessibleTextRole
 
 T_SearchData = str | QIcon | QBrush | Qt.AlignmentFlag | tuple[int, int] | None
 
@@ -126,12 +128,13 @@ class SearchNode:
     #  Data Edit
     ##
 
-    def setDocumentData(self, item: ProjectItem, count: str, color: QBrush) -> None:
+    def setDocumentData(self, item: ProjectItem, count: str, access: str, color: QBrush) -> None:
         """Set the display data for a document-level node."""
         self._item = item
         self._cache[C_LABEL_TEXT] = item.itemName
         self._cache[C_LABEL_ICON] = item.getMainIcon()
         self._cache[C_COUNT_TEXT] = count
+        self._cache[C_COUNT_ACCESS] = access
         self._cache[C_COUNT_ALIGN] = QtAlignRight
         self._cache[C_COUNT_COLOR] = color
 
@@ -264,7 +267,8 @@ class SearchResultModel(QAbstractItemModel):
         ext = "+" if capped else ""
 
         node = SearchNode(handle)
-        node.setDocumentData(nwItem, f"({len(results):n}{ext})", self._color)
+        count = f"{len(results):n}{ext}"
+        node.setDocumentData(nwItem, f"({count})", self.tr("{0} matches").format(count), self._color)
         node.setChildren(self._buildMatches(handle, results))
 
         row = self._map.get(handle, (len(self._rows), 0.0))[0]

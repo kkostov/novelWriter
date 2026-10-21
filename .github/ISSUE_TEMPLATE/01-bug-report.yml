@@ -15,7 +15,9 @@ body:
     id: description
     attributes:
       label: Bug Description
-      description: Provide a clear and concise description of what happened.
+      description: >
+        Provide a clear and concise description of what happened.
+        Include screenshots where relevant.
       placeholder: Tell us what you see.
     validations:
       required: true
@@ -24,7 +26,9 @@ body:
     id: reproduce
     attributes:
       label: Steps to Reproduce
-      description: Explain what to do to reproduce the issue.
+      description: >
+        Explain what to do to reproduce the issue.
+        Include screenshots where relevant.
       placeholder: Tell us what to do.
     validations:
       required: true
@@ -57,12 +61,3 @@ body:
       render: shell
     validations:
       required: false
-
-  - type: upload
-    id: screenshots
-    attributes:
-      label: Upload Screenshots
-      description: If applicable, add screenshots to help explain your problem.
-    validations:
-      required: false
-      accept: ".png,.jpg,.gif"

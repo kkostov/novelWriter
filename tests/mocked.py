@@ -24,7 +24,7 @@ from __future__ import annotations
 from typing import Any, NoReturn
 from unittest.mock import MagicMock
 
-from PyQt6.QtCore import QSize, QTranslator
+from PyQt6.QtCore import QSize, Qt, QTranslator
 from PyQt6.QtGui import QFont, QIcon, QPixmap
 from PyQt6.QtWidgets import QWidget
 
@@ -106,11 +106,19 @@ class MockApp:
     """Mock application."""
 
     def __init__(self):
-        return
+        self._direction = Qt.LayoutDirection.LeftToRight
 
     def installTranslator(self, language: QTranslator) -> None:
         """Ignore the translator."""
         return
+
+    def setLayoutDirection(self, direction: Qt.LayoutDirection) -> None:
+        """Store the layout direction."""
+        self._direction = direction
+
+    def layoutDirection(self) -> Qt.LayoutDirection:
+        """Return the stored layout direction."""
+        return self._direction
 
 
 # Error Functions

@@ -763,6 +763,19 @@ def testIndex_ExtractData(nwGUI: GuiMain, fncPath: Path, mockRnd: MockRnd):
     refs = index.getBackReferenceList(cHandle)
     assert refs[nHandle][0] == "T0001"
 
+    # getTagUseCounts
+    # ===============
+
+    # Multiple keywords in one heading count once, unreferenced tags are absent
+    assert index.getTagUseCounts() == {"jane": 1, "john": 1}
+
+    # Each referencing heading is counted, also in notes and inactive documents
+    assert index.scanText(nHandle, "# Scene One\n@char: Jane\n\n# Scene Two\n@char: Jane\n")
+    assert index.scanText(dHandle, "# John Smith\n@tag: John\n@mention: Jane\n")
+    assert index.getTagUseCounts() == {"jane": 3}
+    assert index.scanText(nHandle, "# Hello World!\n@tag: Scene\n@pov: Jane\n@char: Jane, John\n")
+    assert index.scanText(dHandle, "# John Smith\n@tag: John\n")
+
     # getTagSource
     # ============
 

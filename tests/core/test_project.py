@@ -552,32 +552,37 @@ def testNWProject_Methods(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain,
 
     # Project Language
     project.setProjectChanged(False)
-    project.data.setLanguage("en")
-    project.setProjectLang(None)
+    project.data.setLanguage("en", False)
+    project.setProjectLang(None, False)
     assert project.data.language is None
-    project.setProjectLang("en_GB")
+    project.setProjectLang("en_GB", False)
     assert project.data.language == "en_GB"
 
     # Setting the same language again does nothing
     project.setProjectChanged(False)
-    project.setProjectLang("en_GB")
+    project.setProjectLang("en_GB", False)
     assert project.projChanged is False
 
     # A non-bool value does not change the project changed flag
     assert project.setProjectChanged("not a bool") is False  # type: ignore
+
+    # Changing only the direction is a change
+    project.setProjectLang("en_GB", True)
+    assert project.data.isRTL is True
+    assert project.projChanged is True
 
     # Language Lookup
     assert project.localLookup(1) == "One"
     assert project.localLookup(10) == "Ten"
 
     # Set invalid language
-    project.data.setLanguage("foo")
+    project.data.setLanguage("foo", False)
     project._loadProjectLocalisation()
     assert project.localLookup(1) == "One"
     assert project.localLookup(10) == "Ten"
 
     # Block reading language data
-    project.data.setLanguage("en")
+    project.data.setLanguage("en", False)
     with monkeypatch.context() as mp:
         mp.setattr("builtins.open", causeOSError)
         project._loadProjectLocalisation()

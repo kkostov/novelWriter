@@ -21,6 +21,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
+import json
 import sys
 
 from collections.abc import Callable
@@ -46,6 +47,7 @@ from novelwriter.tools.writingstats import GuiWritingStats
 from tests.helpers import buildTestProject
 
 LANG_DATA = CONFIG.listLanguages(CONFIG.LANG_NW)
+PROJ_DATA = CONFIG.listLanguages(CONFIG.LANG_PROJ)
 
 
 @pytest.mark.gui
@@ -90,3 +92,14 @@ def testGuiI18n_Localisation(
 
     qtbot.wait(20)
     nwGUI.closeMain()
+
+
+@pytest.mark.base
+@pytest.mark.parametrize("language", [a for a, b in PROJ_DATA if a != "en_GB"])
+def testGuiI18n_ProjectExport(language: str):
+    """Check that a project language file matches the en_GB reference."""
+    langPath = Path(CONFIG.nwLangPath)
+    reference = json.loads((langPath / "project_en_GB.json").read_text(encoding="utf-8"))
+    data = json.loads((langPath / f"project_{language}.json").read_text(encoding="utf-8"))
+    assert data.keys() == reference.keys()
+    assert all(isinstance(v, str) and v for v in data.values())

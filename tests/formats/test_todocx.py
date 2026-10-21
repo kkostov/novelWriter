@@ -69,8 +69,7 @@ def testToDocX_NovelHeadingStyles(mockGUI: MockGuiMain):
     doc.doConvert()
     doc._pars[-1].toXml(xTest)
     assert xmlToText(xTest) == (
-        '<w:body><w:p><w:pPr><w:pStyle w:val="Title" /><w:jc w:val="center" /></w:pPr>'
-        '<w:r><w:br w:type="page" /></w:r>'
+        '<w:body><w:p><w:pPr><w:pStyle w:val="Title" /><w:pageBreakBefore /><w:jc w:val="center" /></w:pPr>'
         "<w:r><w:rPr /><w:t>Hello World</w:t></w:r></w:p></w:body>"
     )
 
@@ -82,8 +81,7 @@ def testToDocX_NovelHeadingStyles(mockGUI: MockGuiMain):
     doc.doConvert()
     doc._pars[-1].toXml(xTest)
     assert xmlToText(xTest) == (
-        '<w:body><w:p><w:pPr><w:pStyle w:val="Title" /><w:jc w:val="center" /></w:pPr>'
-        '<w:r><w:br w:type="page" /></w:r>'
+        '<w:body><w:p><w:pPr><w:pStyle w:val="Title" /><w:pageBreakBefore /><w:jc w:val="center" /></w:pPr>'
         "<w:r><w:rPr /><w:t>Part</w:t><w:br /><w:t>Hello World</w:t></w:r></w:p></w:body>"
     )
 
@@ -94,8 +92,7 @@ def testToDocX_NovelHeadingStyles(mockGUI: MockGuiMain):
     doc.doConvert()
     doc._pars[-1].toXml(xTest)
     assert xmlToText(xTest) == (
-        '<w:body><w:p><w:pPr><w:pStyle w:val="Heading1" /></w:pPr>'
-        '<w:r><w:br w:type="page" /></w:r>'
+        '<w:body><w:p><w:pPr><w:pStyle w:val="Heading1" /><w:pageBreakBefore /></w:pPr>'
         "<w:r><w:rPr /><w:t>Hello World</w:t></w:r></w:p></w:body>"
     )
 
@@ -107,8 +104,7 @@ def testToDocX_NovelHeadingStyles(mockGUI: MockGuiMain):
     doc.doConvert()
     doc._pars[-1].toXml(xTest)
     assert xmlToText(xTest) == (
-        '<w:body><w:p><w:pPr><w:pStyle w:val="Heading1" /></w:pPr>'
-        '<w:r><w:br w:type="page" /></w:r>'
+        '<w:body><w:p><w:pPr><w:pStyle w:val="Heading1" /><w:pageBreakBefore /></w:pPr>'
         "<w:r><w:rPr /><w:t>Chapter 2</w:t><w:br /><w:t>Hello World</w:t></w:r></w:p></w:body>"
     )
 
@@ -439,8 +435,7 @@ def testToDocX_ParagraphFormatting(mockGUI: MockGuiMain):
     doc.doConvert()
     doc._pars[-1].toXml(xTest)
     assert xmlToText(xTest) == (
-        '<w:body><w:p><w:pPr><w:pStyle w:val="Normal" /></w:pPr>'
-        '<w:r><w:br w:type="page" /></w:r>'
+        '<w:body><w:p><w:pPr><w:pStyle w:val="Normal" /><w:pageBreakBefore /></w:pPr>'
         "<w:r><w:rPr /><w:t>Hello World</w:t></w:r>"
         "</w:p></w:body>"
     )
@@ -763,7 +758,7 @@ def testToDocX_Fields(mockGUI: MockGuiMain):
     doc.tokenizeText()
     doc.doConvert()
     doc.countStats()
-    doc._documentXml(None, None)
+    doc._documentXml(None, None, None)
     assert xmlToText(doc._files["document.xml"].xml) == (
         '<w:document><w:body><w:p><w:pPr><w:pStyle w:val="Normal" /></w:pPr>'
         '<w:r><w:rPr /><w:t xml:space="preserve">Word Count: </w:t></w:r>'
@@ -780,6 +775,67 @@ def testToDocX_Fields(mockGUI: MockGuiMain):
         '<w:pgNumType w:start="1" w:fmt="decimal" /><w:titlePg />'
         "</w:sectPr></w:body></w:document>"
     )
+
+
+@pytest.mark.core
+def testToDocX_RightToLeft(mockGUI: MockGuiMain):
+    """Test RTL documents."""
+    project = NWProject()
+    doc = ToDocX(project)
+    doc.setLanguage(None, True)
+    doc.initDocument()
+    word = "متن"
+
+    # LTR blocks are marked, and keep physical alignment and indents
+    xTest = ET.Element(_wTag("body"))
+    doc._blocks = [(BlockTyp.TEXT, "", "Hello World", [], BlockFmt.LEFT | BlockFmt.IND_L)]
+    doc.doConvert()
+    doc._pars[-1].toXml(xTest)
+    assert xmlToText(xTest) == (
+        '<w:body><w:p><w:pPr><w:pStyle w:val="Normal" /><w:bidi w:val="0" />'
+        '<w:ind w:left="880" /><w:jc w:val="left" /></w:pPr>'
+        "<w:r><w:rPr /><w:t>Hello World</w:t></w:r></w:p></w:body>"
+    )
+
+    # RTL blocks inherit the direction, and swap left and right, which
+    # Word treats as start and end
+    xTest = ET.Element(_wTag("body"))
+    doc._blocks = [(BlockTyp.TEXT, "", word, [], BlockFmt.LEFT | BlockFmt.IND_L)]
+    doc.doConvert()
+    doc._pars[-1].toXml(xTest)
+    assert xmlToText(xTest) == (
+        '<w:body><w:p><w:pPr><w:pStyle w:val="Normal" />'
+        '<w:ind w:right="880" /><w:jc w:val="right" /></w:pPr>'
+        f"<w:r><w:rPr /><w:t>{word}</w:t></w:r></w:p></w:body>"
+    )
+
+    # Bold and italic also apply to complex scripts
+    xTest = ET.Element(_wTag("body"))
+    doc._text = f"**{word}** _{word}_"
+    doc.tokenizeText()
+    doc.doConvert()
+    doc._pars[-1].toXml(xTest)
+    assert xmlToText(xTest) == (
+        '<w:body><w:p><w:pPr><w:pStyle w:val="Normal" /></w:pPr>'
+        f"<w:r><w:rPr><w:b /><w:bCs /></w:rPr><w:t>{word}</w:t></w:r>"
+        '<w:r><w:rPr /><w:t xml:space="preserve"> </w:t></w:r>'
+        f"<w:r><w:rPr><w:i /><w:iCs /></w:rPr><w:t>{word}</w:t></w:r>"
+        "</w:p></w:body>"
+    )
+
+    # Footnotes follow the same rule
+    doc._text = f"{word}[footnote:a]\n\n%footnote.a: English note.\n\n"
+    doc.tokenizeText()
+    doc.doConvert()
+    doc._footnotesXml()
+    assert '<w:pStyle w:val="FootnoteText" /><w:bidi w:val="0" />' in xmlToText(doc._files["footnotes.xml"].xml)
+
+    # The document defaults and the section are RTL, with the gutter on the right
+    doc.closeDocument()
+    styles = xmlToText(doc._files["styles.xml"].xml)
+    assert "<w:pPrDefault><w:pPr><w:bidi /><w:spacing " in styles
+    assert '<w:lang w:val="en_GB" w:bidi="en_GB" />' in styles
+    assert "<w:titlePg /><w:bidi /><w:rtlGutter /></w:sectPr>" in xmlToText(doc._files["document.xml"].xml)
 
 
 @pytest.mark.core
@@ -816,7 +872,7 @@ def testToDocX_MinimalClose(mockGUI: MockGuiMain):
 
     # A header format consisting only of the page marker has no
     # leading or trailing text
-    doc.setHeaderFormat(nwHeadFmt.DOC_PAGE, 0)
+    doc.setHeaderFormat(nwHeadFmt.DOC_PAGE, "", 0)
     doc.closeDocument()
     assert xmlToText(doc._files["header1.xml"].xml) == (
         '<w:hdr><w:p><w:pPr><w:pStyle w:val="Header" /><w:jc w:val="right" />'
@@ -829,7 +885,7 @@ def testToDocX_MinimalClose(mockGUI: MockGuiMain):
     )
 
     # A header format without a page marker has no page field
-    doc.setHeaderFormat("Just Text", 0)
+    doc.setHeaderFormat("Just Text", "", 0)
     doc.closeDocument()
     assert xmlToText(doc._files["header1.xml"].xml) == (
         '<w:hdr><w:p><w:pPr><w:pStyle w:val="Header" /><w:jc w:val="right" />'
@@ -837,6 +893,71 @@ def testToDocX_MinimalClose(mockGUI: MockGuiMain):
         "<w:r><w:t>Just Text</w:t></w:r>"
         "</w:p></w:hdr>"
     )
+
+
+@pytest.mark.core
+def testToDocX_DoublePages(mockGUI: MockGuiMain):
+    """Test odd page sections and even page headers."""
+    project = NWProject()
+    doc = ToDocX(project)
+    doc.setPageLayout(210.0, 297.0, 20.0, 20.0, 20.0, 20.0, 10.0, True)
+    doc.setHeaderFormat("Odd", "Even", 1)
+    doc.initDocument()
+    doc._blocks = [
+        (BlockTyp.TEXT, "", "Title page", [], BlockFmt.NONE),
+        (BlockTyp.HEAD1, "", "Chapter One", [], BlockFmt.HBB),
+        (BlockTyp.TEXT, "", "Text", [], BlockFmt.PBB),
+        (BlockTyp.HEAD1, "", "Chapter Two", [], BlockFmt.PBB | BlockFmt.HBB),
+    ]
+    doc.doConvert()
+    doc.closeDocument()
+
+    xBody = doc._files["document.xml"].xml.find(_wTag("body"))
+    assert xBody is not None
+    page = (
+        '<w:pgSz w:w="11905" w:h="16837" w:orient="portrait" />'
+        '<w:pgMar w:top="1133" w:right="1133" w:bottom="1133" w:left="1133" '
+        'w:header="748" w:footer="0" w:gutter="566" />'
+    )
+    notes = '<w:footnotePr><w:numFmt w:val="decimal" /></w:footnotePr>'
+    heads = '<w:headerReference w:type="default" r:id="rId5" /><w:headerReference w:type="even" r:id="rId7" />'
+    oddSection = f'<w:sectPr>{heads}{notes}<w:type w:val="oddPage" />{page}<w:pgNumType w:fmt="decimal" /></w:sectPr>'
+
+    # The first section ends before the first odd page break, and
+    # the following sections start on odd pages and continue numbering
+    assert [xmlToText(x) for x in xBody] == [
+        (
+            '<w:p><w:pPr><w:pStyle w:val="Normal" />'
+            f'<w:sectPr><w:headerReference w:type="first" r:id="rId6" />{heads}{notes}{page}'
+            '<w:pgNumType w:start="0" w:fmt="decimal" /><w:titlePg /></w:sectPr>'
+            "</w:pPr><w:r><w:rPr /><w:t>Title page</w:t></w:r></w:p>"
+        ),
+        '<w:p><w:pPr><w:pStyle w:val="Heading1" /></w:pPr><w:r><w:rPr /><w:t>Chapter One</w:t></w:r></w:p>',
+        (
+            f'<w:p><w:pPr><w:pStyle w:val="Normal" /><w:pageBreakBefore />{oddSection}'
+            "</w:pPr><w:r><w:rPr /><w:t>Text</w:t></w:r></w:p>"
+        ),
+        '<w:p><w:pPr><w:pStyle w:val="Heading1" /></w:pPr><w:r><w:rPr /><w:t>Chapter Two</w:t></w:r></w:p>',
+        oddSection,
+    ]
+
+    # The even page header is mirrored
+    assert xmlToText(doc._files["header3.xml"].xml) == (
+        '<w:hdr><w:p><w:pPr><w:pStyle w:val="Header" /><w:jc w:val="left" /><w:rPr /></w:pPr>'
+        "<w:r><w:t>Even</w:t></w:r></w:p></w:hdr>"
+    )
+
+    # Even and odd headers are enabled
+    xSett = doc._files["settings.xml"].xml
+    assert xSett[0].tag == _wTag("mirrorMargins")
+    assert xSett[1].tag == _wTag("evenAndOddHeaders")
+
+    # Single pages have no even page header
+    doc.setPageLayout(210.0, 297.0, 20.0, 20.0, 20.0, 20.0, 10.0, False)
+    doc._files = {}
+    doc.closeDocument()
+    assert "header3.xml" not in doc._files
+    assert doc._files["settings.xml"].xml.find(_wTag("evenAndOddHeaders")) is None
 
 
 @pytest.mark.core

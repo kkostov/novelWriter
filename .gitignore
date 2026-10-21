@@ -28,7 +28,8 @@ i18n/*.qph
 /novelwriter/assets/manual*.pdf
 .~lock.*
 
-# Python Temp
+# Python
+/.python-version
 __pycache__
 *.pyc
 

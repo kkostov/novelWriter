@@ -121,6 +121,7 @@ def testGuiDocEditor_Init(qtbot: QtBot, nwGUI: GuiMain, projPath: Path, ipsumTex
     # Check Defaults
     qDoc = docEditor._qDocument
     assert qDoc.defaultTextOption().alignment() == QtAlignLeft
+    assert qDoc.defaultTextOption().textDirection() == Qt.LayoutDirection.LayoutDirectionAuto
     assert docEditor.verticalScrollBarPolicy() == QtScrollAsNeeded
     assert docEditor.horizontalScrollBarPolicy() == QtScrollAsNeeded
     assert CONFIG.fmtPadThin is False
@@ -144,12 +145,14 @@ def testGuiDocEditor_Init(qtbot: QtBot, nwGUI: GuiMain, projPath: Path, ipsumTex
     CONFIG.hideHScroll = True
     CONFIG.fmtPadThin = True
     CONFIG.showFullPath = False
+    SHARED.project.setProjectLang(None, True)
 
     docEditor.initEditor()
 
     qDoc = docEditor._qDocument
     assert CONFIG.textFont == qDoc.defaultFont()
     assert qDoc.defaultTextOption().alignment() == QtAlignJustify
+    assert qDoc.defaultTextOption().textDirection() == Qt.LayoutDirection.LayoutDirectionAuto
     assert qDoc.defaultTextOption().flags() & QTextOption.Flag.ShowTabsAndSpaces
     assert qDoc.defaultTextOption().flags() & QTextOption.Flag.ShowLineAndParagraphSeparators
     assert docEditor.verticalScrollBarPolicy() == QtScrollAlwaysOff
@@ -230,6 +233,11 @@ def testGuiDocEditor_LoadText(qtbot: QtBot, nwGUI: GuiMain, projPath: Path, ipsu
 
     # Regular open
     assert docEditor.loadText(C.hSceneDoc) is True
+
+    # RTL projects still use automatic direction in the editor
+    SHARED.project.setProjectLang(None, True)
+    assert docEditor.loadText(C.hSceneDoc) is True
+    assert docEditor._qDocument.defaultTextOption().textDirection() == Qt.LayoutDirection.LayoutDirectionAuto
 
     # Regular open, with line number (1 indexed)
     assert docEditor.loadText(C.hSceneDoc, tLine=4) is True
@@ -1348,6 +1356,28 @@ def testGuiDocEditor_Actions(qtbot: QtBot, nwGUI: GuiMain, projPath: Path, ipsum
 
     docEditor.setCursorPosition(0)  # Blocked on headings
     assert docEditor.docAction(nwDocAction.SC_SUB) is False
+
+    # RTL projects get an RTL mark when a shortcode would set the direction
+    SHARED.project.setProjectLang(None, True)
+    word = "متن"
+    text = f"### A Scene\n\n{word} {word}\n\n% {word}"
+    docEditor.replaceText(text)
+
+    docEditor.setCursorPosition(14)
+    assert docEditor.docAction(nwDocAction.SC_ITALIC) is True
+    assert docEditor.getText() == f"### A Scene\n\n\u200f[i]{word}[/i] {word}\n\n% {word}"
+    assert docEditor.docAction(nwDocAction.UNDO) is True
+
+    docEditor.setCursorPosition(18)  # Not needed after a strong character
+    assert docEditor.docAction(nwDocAction.SC_ITALIC) is True
+    assert docEditor.getText() == f"### A Scene\n\n{word} [i]{word}[/i]\n\n% {word}"
+    assert docEditor.docAction(nwDocAction.UNDO) is True
+
+    docEditor.setCursorPosition(25)  # Goes after the comment prefix
+    assert docEditor.docAction(nwDocAction.SC_ITALIC) is True
+    assert docEditor.getText() == f"### A Scene\n\n{word} {word}\n\n% \u200f[i]{word}[/i]"
+    assert docEditor.docAction(nwDocAction.UNDO) is True
+    SHARED.project.setProjectLang(None, False)
 
     # Quotes
     # ======
@@ -2906,6 +2936,10 @@ def testGuiDocEditor_HoverCard(qtbot: QtBot, nwGUI: GuiMain, projPath: Path, moc
     docEditor.updateChangedTags([], [])
     assert docEditor._hoverCard._cache == {"jane": "<p>Cached</p>"}
 
+    # A new or rebuilt index clears the whole cache
+    docEditor.indexHasAppeared()
+    assert docEditor._hoverCard._cache == {}
+
 
 @pytest.mark.gui
 def testGuiDocEditor_ProcessTagEdgeCases(
@@ -3247,6 +3281,25 @@ def testGuiDocEditor_UpdateDocMargins(qtbot: QtBot, nwGUI: GuiMain, projPath: Pa
     CONFIG.textWidth = 0
     SHARED.setFocusMode(False)
     docEditor.updateDocMargins()
+
+    # Tool bar and search box are placed on opposite sides
+    docEditor.beginSearch()
+    assert docEditor.docSearch.isVisible()
+    tB = docEditor.frameWidth()
+    vBar = docEditor.verticalScrollBar()
+    sW = vBar.width() if vBar and vBar.isVisible() else 0
+
+    CONFIG.rtlMode = False
+    docEditor.updateDocMargins()
+    assert docEditor.docToolBar.x() == 0
+    assert docEditor.docSearch.x() == docEditor.width() - sW - docEditor.docSearch.width() - 2 * tB
+
+    # In RTL, the tool bar position uses its size hint, also while hidden
+    CONFIG.rtlMode = True
+    docEditor.docToolBar.setVisible(False)
+    docEditor.updateDocMargins()
+    assert docEditor.docToolBar.x() == docEditor.width() - docEditor.docToolBar.sizeHint().width()
+    assert docEditor.docSearch.x() == 2
 
 
 @pytest.mark.gui
@@ -3960,6 +4013,23 @@ def testGuiDocEditor_Search(
     for _ in range(len(anyMatches) - idx):
         nwGUI.mainMenu.aFindNext.activate(QAction.ActionEvent.Trigger)
     assert docEditor.getCursorPosition() == anyMatches[0][1]
+
+    # Typing next to a highlighted match should not extend it
+    mStart, mEnd = anyMatches[0]
+    match = origText[mStart:mEnd]
+    highlight = docEditor._searchSelections[0].cursor
+    assert highlight.selectedText() == match
+    cursor = docEditor.textCursor()
+    cursor.setPosition(mEnd)
+    cursor.insertText("xx")
+    assert highlight.selectedText() == match
+    cursor.setPosition(mStart)
+    cursor.insertText("yy")
+    assert highlight.selectedText() == match
+    cursor.setPosition(mStart)
+    cursor.setPosition(mEnd + 4, QtKeepAnchor)
+    cursor.insertText(match)
+    assert docEditor.getText() == origText
 
     # Close search
     docSearch.tbCancel.click()
