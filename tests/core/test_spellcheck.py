@@ -24,7 +24,9 @@ from __future__ import annotations
 import sys
 
 from importlib.util import find_spec
+from itertools import count
 from pathlib import Path
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -141,10 +143,29 @@ def testFakeEnchant_Main(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, 
     assert fkChk.add_to_session("whatchamajig") is None
 
 
+class MockBroker:
+    """Stand-in for enchant.Broker."""
+
+    def request_dict(self, tag: str) -> None:
+        """Mock dictionary request."""
+        return
+
+
+def mockEnchantModule(mp: pytest.MonkeyPatch) -> None:
+    """Install a minimal enchant module."""
+    enchant = ModuleType("enchant")
+    enchant.__dict__["Broker"] = MockBroker
+    enchant.__dict__["dict_exists"] = lambda tag: False
+    enchant.__dict__["list_dicts"] = list
+    mp.setitem(sys.modules, "enchant", enchant)
+
+
 @pytest.mark.core
-@pytest.mark.skipif(not HAS_ENCHANT, reason="Requires pyenchant")
 def testSpellEnchant_Main(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, fncPath: Path):
     """Test the pyenchant spell checker."""
+    if not HAS_ENCHANT:
+        mockEnchantModule(monkeypatch)
+
     project = NWProject()
     buildTestProject(project, fncPath)
 
@@ -273,12 +294,89 @@ def testSpellChecker_Cache(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain
     assert spChk._cache == {}
 
 
+class MockNSSpellChecker:
+    """Stand-in for NSSpellChecker on other platforms."""
+
+    def __init__(self) -> None:
+        self._words = {"hello", "world"}
+        self._ignored: dict[int, set[str]] = {}
+
+    def setAutomaticallyIdentifiesLanguages_(self, state: bool) -> None:
+        """Mock language detection toggle."""
+        return
+
+    def setLanguage_(self, language: str) -> bool:
+        """Mock language selection."""
+        return language in self.availableLanguages()
+
+    def availableLanguages(self) -> list[str]:
+        """Mock available languages."""
+        return ["en", "de"]
+
+    def checkSpellingOfString_startingAt_language_wrap_inSpellDocumentWithTag_wordCount_(
+        self, word: str, start: int, language: str, wrap: bool, tag: int, count: None
+    ) -> tuple[SimpleNamespace, int]:
+        """Mock spell check of a single word."""
+        known = word in self._words or word in self._ignored.get(tag, set())
+        return SimpleNamespace(location=sys.maxsize if known else 0), 1
+
+    def guessesForWordRange_inString_language_inSpellDocumentWithTag_(
+        self, wordRange: SimpleNamespace, word: str, language: str, tag: int
+    ) -> list[str]:
+        """Mock spelling suggestions."""
+        return ["hello"] if word == "helo" else []
+
+    def ignoreWord_inSpellDocumentWithTag_(self, word: str, tag: int) -> None:
+        """Mock ignoring a word in a spell document."""
+        self._ignored.setdefault(tag, set()).add(word)
+
+    def closeSpellDocumentWithTag_(self, tag: int) -> None:
+        """Mock closing a spell document."""
+        self._ignored.pop(tag, None)
+
+
+def mockAppleModules(mp: pytest.MonkeyPatch) -> None:
+    """Install minimal AppKit and Foundation modules."""
+    checker = MockNSSpellChecker()
+    tags = count(1)
+
+    appKit = ModuleType("AppKit")
+    appKit.__dict__["NSSpellChecker"] = SimpleNamespace(
+        sharedSpellChecker=lambda: checker,
+        uniqueSpellDocumentTag=lambda: next(tags),
+    )
+    foundation = ModuleType("Foundation")
+    foundation.__dict__["NSNotFound"] = sys.maxsize
+    foundation.__dict__["NSMakeRange"] = lambda loc, length: SimpleNamespace(location=loc, length=length)
+
+    mp.setitem(sys.modules, "AppKit", appKit)
+    mp.setitem(sys.modules, "Foundation", foundation)
+
+
 @pytest.mark.core
-@pytest.mark.skipif(not IS_DARWIN, reason="Requires macOS")
 def testSpellApple_Main(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, fncPath: Path):
     """Test the macOS spell checker."""
     project = NWProject()
     buildTestProject(project, fncPath)
+
+    # On macOS, check the system NSSpellChecker without assuming a language
+    if IS_DARWIN:
+        spChk = SpellApple(project)
+        languages = spChk.listDictionaries()
+        assert len(languages) > 0
+
+        tag = languages[0][0]
+        spChk.setLanguage(tag)
+        assert spChk.spellLanguage == tag
+        assert spChk.describeDict() == (tag, "AppleSpell")
+        assert isinstance(spChk.checkWord("zpqxyq"), bool)
+        assert isinstance(spChk.suggestWords("zpqxyq"), list)
+
+        spChk.addWord("zpqxyq", save=False)
+        spChk.setLanguage(tag)
+
+    # The rest of the test uses a mock NSSpellChecker
+    mockAppleModules(monkeypatch)
 
     spChk = SpellApple(project)
     assert spChk.spellLanguage is None
@@ -329,3 +427,8 @@ def testSpellApple_Main(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, f
         spChk.setLanguage("en")
         assert spChk.spellLanguage is None
         assert spChk.listDictionaries() == []
+
+        # User words are skipped when no checker was ever loaded
+        broken = SpellApple(project)
+        broken.setLanguage("en")
+        assert broken.spellLanguage is None
