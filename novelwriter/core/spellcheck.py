@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 MAX_CACHE_SIZE = 100_000
+SYSTEM_CHECKER_LOCK = Lock()
 
 
 class SpellChecker(ABC):
@@ -269,12 +270,23 @@ class SpellApple(SpellChecker):
 
     This is a wrapper class for the system NSSpellChecker. Words added
     by the user are ignored in a spell document owned by this instance.
+
+    Note:
+    * NSSpellChecker is not bound to the main thread, but its selected
+      language is process-wide state that every check writes to. All
+      instances therefore share one lock, as there is only one checker
+      per process, and every call must hold it, from any thread, and
+      pass the language explicitly.
+    * Word checks run on thread pool threads, which have no autorelease
+      pool, so each check drains its own pool.
+
     """
 
     __slots__ = ("_checker", "_document")
 
     def __init__(self, project: NWProject) -> None:
         super().__init__(project)
+        self._lock = SYSTEM_CHECKER_LOCK
         self._checker: Any = None
         self._document = 0
 
@@ -284,7 +296,6 @@ class SpellApple(SpellChecker):
 
         self._closeDocument()
         self._checker = NSSpellChecker.sharedSpellChecker()
-        self._checker.setAutomaticallyIdentifiesLanguages_(False)
         self._document = NSSpellChecker.uniqueSpellDocumentTag()
 
         if language and self._checker.setLanguage_(language):
@@ -296,13 +307,16 @@ class SpellApple(SpellChecker):
 
     def _checkWord(self, word: str) -> bool:
         """Forward check to NSSpellChecker."""
+        import objc  # type: ignore
+
         from Foundation import NSNotFound  # type: ignore
 
         if self._language is None:
             return True
-        result, _ = self._checker.checkSpellingOfString_startingAt_language_wrap_inSpellDocumentWithTag_wordCount_(
-            word, 0, self._language, False, self._document, None
-        )
+        with objc.autorelease_pool():
+            result, _ = self._checker.checkSpellingOfString_startingAt_language_wrap_inSpellDocumentWithTag_wordCount_(
+                word, 0, self._language, False, self._document, None
+            )
         return result.location == NSNotFound
 
     def _suggestWords(self, word: str) -> list[str]:

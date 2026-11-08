@@ -22,17 +22,25 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import sys
+import threading
 
+from contextlib import nullcontext
 from importlib.util import find_spec
-from itertools import count
+from itertools import count, product
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
 
+from PyQt6.QtCore import QThreadPool
+from pytestqt.qtbot import QtBot
+
+from novelwriter import SHARED
+from novelwriter.common import utf16CharMap
 from novelwriter.constants import nwFiles
 from novelwriter.core.project import NWProject
 from novelwriter.core.spellcheck import FakeEnchant, SpellApple, SpellEnchant, UserDictionary
+from novelwriter.editor.runnables import TextCheckDispatcher
 
 from tests.helpers import buildTestProject
 from tests.mocked import MockGuiMain, causeException, causeOSError
@@ -303,10 +311,6 @@ class MockNSSpellChecker:
         self.closed: list[int] = []
         self.ranges: list[tuple[int, int]] = []
 
-    def setAutomaticallyIdentifiesLanguages_(self, state: bool) -> None:
-        """Mock language detection toggle."""
-        return
-
     def setLanguage_(self, language: str) -> bool:
         """Mock language selection."""
         return language in self.availableLanguages()
@@ -340,7 +344,7 @@ class MockNSSpellChecker:
 
 
 def mockAppleModules(mp: pytest.MonkeyPatch) -> None:
-    """Install minimal AppKit and Foundation modules."""
+    """Install minimal AppKit, Foundation and objc modules."""
     checker = MockNSSpellChecker()
     tags = count(1)
 
@@ -353,8 +357,12 @@ def mockAppleModules(mp: pytest.MonkeyPatch) -> None:
     foundation.__dict__["NSNotFound"] = sys.maxsize
     foundation.__dict__["NSMakeRange"] = lambda loc, length: SimpleNamespace(location=loc, length=length)
 
+    objc = ModuleType("objc")
+    objc.__dict__["autorelease_pool"] = nullcontext
+
     mp.setitem(sys.modules, "AppKit", appKit)
     mp.setitem(sys.modules, "Foundation", foundation)
+    mp.setitem(sys.modules, "objc", objc)
 
 
 @pytest.mark.core
@@ -440,6 +448,7 @@ def testSpellApple_Main(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, f
 
     # A new instance loads the user dictionary into its own session
     other = SpellApple(project)
+    assert other._lock is spChk._lock
     other.setLanguage("en")
     assert other.checkWord("zpqxyq") is True
 
@@ -454,3 +463,86 @@ def testSpellApple_Main(monkeypatch: pytest.MonkeyPatch, mockGUI: MockGuiMain, f
         broken = SpellApple(project)
         broken.setLanguage("en")
         assert broken.spellLanguage is None
+
+
+def nonsenseWords() -> list[str]:
+    """Generate unique letter-only words that are not in any dictionary."""
+    return ["zpqx" + "".join(x) for x in product("bcdfghjklm", repeat=3)]
+
+
+@pytest.mark.core
+@pytest.mark.skipif(not IS_DARWIN, reason="Requires the macOS NSSpellChecker")
+def testSpellApple_BackgroundTextCheck(
+    monkeypatch: pytest.MonkeyPatch, qtbot: QtBot, mockGUI: MockGuiMain, fncPath: Path
+):
+    """Test the system NSSpellChecker through the editor's background
+    text check, while the main thread uses the same checker.
+    """
+    project = NWProject()
+    buildTestProject(project, fncPath)
+
+    errors: list[BaseException | None] = []
+    monkeypatch.setattr(sys, "excepthook", lambda t, v, tb: errors.append(v))
+    monkeypatch.setattr(threading, "excepthook", lambda a: errors.append(a.exc_value))
+
+    spChk = SpellApple(project)
+    if "en" not in [tag for tag, _ in spChk.listDictionaries()]:
+        pytest.skip("No English dictionary available")
+    spChk.setLanguage("en")
+    assert spChk.spellLanguage == "en"
+    monkeypatch.setattr(SHARED, "_spelling", spChk)
+
+    # Each block has known words, an upper case word, a number, a wide
+    # character, and unique misspellings that bypass the cache
+    words = nonsenseWords()
+    sentence = "The garden house was quiet and green today"
+    payload = []
+    expected = {}
+    for index in range(len(words) // 2):
+        first, second = words[2*index], words[2*index + 1]
+        text = f"\U0001f600 {sentence} {first} NASA 42, {second}."
+        utf16Map = utf16CharMap(text)
+        payload.append((index, text, text, 0, utf16Map))
+        expected[index] = [
+            (utf16Map[text.index(w)], utf16Map[text.index(w) + len(w)], w) for w in (first, second)
+        ]
+
+    results = {}
+    threads = set()
+
+    def onResults(jobId: int, data: list) -> None:
+        threads.add(threading.get_ident())
+        results.update({index: spellErrors for index, spellErrors, _ in data})
+
+    dispatcher = TextCheckDispatcher(mockGUI, onResults)
+    for jobId, start in enumerate(range(0, len(payload), 50)):
+        dispatcher.dispatch(jobId, payload[start:start+50], True, False)
+
+    # The main thread keeps using the checker while the jobs run
+    mainChecks: list[tuple[str, bool, bool]] = []
+    mainCalls = count()
+
+    def mainThreadWork() -> bool:
+        call = next(mainCalls)
+        word = f"zpqy{words[call % len(words)][4:]}"
+        mainChecks.append((word, spChk.checkWord(word), False))
+        mainChecks.append(("garden", spChk.checkWord("garden"), True))
+        mainChecks.append(("suggest", isinstance(spChk.suggestWords("gardn"), list), True))
+        mainChecks.append(("list", len(spChk.listDictionaries()) > 0, True))
+        if call % 10 == 9:
+            spChk.setLanguage("en")
+            spChk.addWord("zpqyadded", save=False)
+            mainChecks.append(("zpqyadded", spChk.checkWord("zpqyadded"), True))
+        return len(results) == len(payload)
+
+    qtbot.waitUntil(mainThreadWork, timeout=10000)
+    pool = QThreadPool.globalInstance()
+    assert pool is not None
+    pool.waitForDone()
+
+    assert errors == []
+    assert threads == {threading.main_thread().ident}
+    assert results == expected
+    assert len(mainChecks) > 4
+    assert [check for check in mainChecks if check[1] != check[2]] == []
+    assert spChk.spellLanguage == "en"
